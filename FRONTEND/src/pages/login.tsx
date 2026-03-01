@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Link } from "react-router-dom"
 
 export default function Login() {
   return (
@@ -30,10 +31,18 @@ export default function Login() {
 
           <p className="text-sm text-center text-muted-foreground">
             ¿No tienes cuenta?{" "}
-            <span className="text-primary cursor-pointer hover:underline">
-              Regístrate
-            </span>
+            <Link to="/register" className="text-primary hover:underline">
+              Registrate
+            </Link>
           </p>
+
+          <div className="text-center">
+            <Link to="/">
+              <Button variant="ghost" className="mt-2">
+                Volver al inicio
+              </Button>
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
