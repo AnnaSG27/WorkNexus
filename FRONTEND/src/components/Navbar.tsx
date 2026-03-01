@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Menu, X, Search, ShoppingCart, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link } from "react-router-dom"
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -10,7 +11,6 @@ const Navbar = () => {
     { name: "Explorar", href: "#services" },
     { name: "Categorías", href: "#categories" },
     { name: "Freelancers", href: "#freelancers" },
-    { name: "Cómo funciona", href: "#how-it-works" },
     { name: "Cómo funciona", href: "#how-it-works" },
   ];
 
@@ -47,12 +47,16 @@ const Navbar = () => {
             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <ShoppingCart className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
-              Iniciar sesión
-            </Button>
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              Registrarse
-            </Button>
+            <Link to="/login">
+              <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
+                Iniciar sesión
+              </Button>
+            </Link>
+            <Link to="/register">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                Registrarse
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
