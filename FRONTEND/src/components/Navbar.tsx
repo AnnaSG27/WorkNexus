@@ -8,10 +8,9 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navLinks = [
-    { name: "Explorar", href: "#services" },
-    { name: "Categorías", href: "#categories" },
-    { name: "Freelancers", href: "#freelancers" },
-    { name: "Cómo funciona", href: "#how-it-works" },
+    { name: "Inicio", to: "/" },
+    { name: "Servicios", to: "/services" },
+    { name: "Profesionales", to: "/freelancers" },
   ];
 
   return (
@@ -33,13 +32,12 @@ const Navbar = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (
-              <a
+              <Link to={link.to}
                 key={link.name}
-                href={link.href}
                 className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
               >
                 {link.name}
-              </a>
+              </Link>
             ))}
           </div>
 
@@ -86,14 +84,13 @@ const Navbar = () => {
           >
             <div className="container mx-auto px-4 py-4 space-y-4">
               {navLinks.map((link) => (
-                <a
+                <Link to={link.to}
                   key={link.name}
-                  href={link.href}
                   className="block text-muted-foreground hover:text-foreground transition-colors py-2"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {link.name}
-                </a>
+                </Link>
               ))}
               <div className="flex gap-2 pt-4 border-t border-border">
                 <Button variant="outline" className="flex-1">
