@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import Services from "./pages/Services"
 import Freelancers from "./pages/Freelancers"
 import MainLayout from "./pages/MainLayout";
+import ServiceCategory from "./components/ServiceCategory";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route index element={<Index />}/>
             <Route path="services" element={<Services />} />
+            <Route path="/services/:category" element={<ServiceCategory />} />
             <Route path="freelancers" element={<Freelancers />} />
           </Route>
           <Route path="/login" element={<Login />} />
