@@ -1,4 +1,3 @@
-
 import CategorySection from "@/components/CategorySection";
 import FeaturedServices from "@/components/FeaturedServices";
 const Services = () => {
