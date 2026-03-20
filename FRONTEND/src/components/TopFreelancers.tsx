@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const API_URL = "http://localhost:8000/auth/freelancers/";
+const API_URL = "http://localhost:8000/professionals/freelancers/";
 
 const fallbackFreelancers: FreelancerCardProps[] = [
   {
