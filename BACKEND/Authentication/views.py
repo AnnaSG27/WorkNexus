@@ -64,13 +64,26 @@ class RegisterView(View):
                     age=int(age) if age else 0
                 )
 
+            # Construir respuesta completa según tipo
+            user_data = {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "country": user.country,
+                "city": user.city,
+                "userType": user_type
+            }
+
+            if user_type == "cliente":
+                user_data["enterpriseName"] = enterprise_name or ""
+
+            elif user_type == "freelancer":
+                user_data["bio"] = bio or ""
+                user_data["age"] = int(age) if age else 0
+
             return JsonResponse({
                 "message": "Usuario creado exitosamente",
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email
-                }
+                "user": user_data
             }, status=201)
 
         except Exception as e:
@@ -112,13 +125,37 @@ class LoginView(View):
 
             if user is not None:
                 django_login(request, user)
+
+                # Determinar tipo de usuario y obtener perfil
+                if hasattr(user, "client_profile"):
+                    user_type = "cliente"
+                    enterprise_name = user.client_profile.enterprise_name
+                elif hasattr(user, "freelancer_profile"):
+                    user_type = "freelancer"
+                    bio = user.freelancer_profile.bio
+                    age = user.freelancer_profile.age
+                else:
+                    user_type = None
+
+                user_data = {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "country": user.country,
+                    "city": user.city,
+                    "userType": user_type
+                }
+
+                if user_type == "cliente":
+                    user_data["enterpriseName"] = enterprise_name
+
+                elif user_type == "freelancer":
+                    user_data["bio"] = bio
+                    user_data["age"] = age
+
                 return JsonResponse({
                     "message": "Login exitoso",
-                    "user": {
-                        "id": user.id,
-                        "username": user.username,
-                        "email": user.email
-                    }
+                    "user": user_data
                 }, status=200)
             else:
                 return JsonResponse({
