@@ -2,16 +2,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { useState } from "react"
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const navigate = useNavigate();
 
   const handleLogin = async () => {
     try {
-      const response = await fetch("http://localhost:8000/login/", {
+      const response = await fetch("http://localhost:8000/auth/login/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -27,7 +28,8 @@ export default function Login() {
       console.log("Respuesta del servidor:", data);
 
       if (response.ok) {
-        alert("Login exitoso");
+        localStorage.setItem("user", JSON.stringify(data.user));
+        navigate("/");
       } else {
         alert("Error en login: " + (data.error || "Error desconocido"));
       }
