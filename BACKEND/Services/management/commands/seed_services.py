@@ -1,49 +1,79 @@
 from django.core.management.base import BaseCommand
 from Services.models import Service
-from django.contrib.auth import get_user_model
+from Authentication.models import FreelancerProfile
 import random
 
 class Command(BaseCommand):
-    help = 'Genera servicios de prueba'
+    help = "Genera servicios coherentes según el perfil del freelancer"
 
     def handle(self, *args, **kwargs):
-        User = get_user_model()
-        user = User.objects.first()
 
-        categories = ["desarrollo", "diseno", "marketing"]
+        # 🔥 Limpia servicios anteriores (opcional)
+        Service.objects.all().delete()
 
-        titles = {
+        # 🎯 Catálogo coherente
+        services_catalog = {
             "desarrollo": [
-                "Desarrollo web profesional",
-                "App en React + Django",
-                "Backend con Django REST",
+                "Desarrollo web con React y Django",
+                "API REST profesional",
+                "Landing page moderna",
+                "Aplicación fullstack",
+                "Optimización de backend",
             ],
             "diseno": [
-                "Diseño UI/UX moderno",
-                "Prototipos en Figma",
+                "Diseño UI/UX en Figma",
+                "Prototipos interactivos",
+                "Diseño de app móvil",
+                "Rediseño de interfaz",
+                "Sistema de diseño",
             ],
             "marketing": [
-                "Marketing digital",
-                "SEO profesional",
+                "Campañas en redes sociales",
+                "SEO para posicionamiento",
+                "Marketing digital completo",
+                "Publicidad en Instagram",
+                "Estrategia de contenido",
             ],
+            "video": [
+                "Edición de video profesional",
+                "Contenido para redes sociales",
+                "Animaciones básicas",
+            ],
+            "data": [
+                "Análisis de datos con Python",
+                "Dashboards en Power BI",
+                "Machine Learning básico",
+            ]
         }
 
-        descriptions = [
-            "Alta calidad",
-            "Entrega rápida",
-            "Trabajo profesional",
-        ]
+        freelancers = FreelancerProfile.objects.all()
 
-        for i in range(50):
-            category = random.choice(categories)
-            title = random.choice(titles[category])
-            description = random.choice(descriptions)
+        for freelancer in freelancers:
+            bio = freelancer.bio.lower()
 
-            Service.objects.create(
-                title=title,
-                description=description,
-                category=category,
-                user=user
-            )
+            # 🔍 Detectar categoría según bio
+            if "react" in bio or "django" in bio or "developer" in bio:
+                category = "desarrollo"
+            elif "ui" in bio or "ux" in bio or "figma" in bio:
+                category = "diseno"
+            elif "marketing" in bio or "seo" in bio:
+                category = "marketing"
+            elif "video" in bio:
+                category = "video"
+            elif "data" in bio or "analyst" in bio:
+                category = "data"
+            else:
+                category = random.choice(["desarrollo", "diseno", "marketing"])
 
-        self.stdout.write(self.style.SUCCESS("✅ Servicios creados"))
+            # 🎯 Generar servicios coherentes
+            for i in range(random.randint(2, 4)):
+                title = random.choice(services_catalog[category])
+
+                Service.objects.create(
+                    title=title,
+                    description=f"{title}. Servicio profesional y de alta calidad.",
+                    category=category,
+                    freelancer=freelancer
+                )
+
+        self.stdout.write(self.style.SUCCESS("🔥 Servicios coherentes creados correctamente"))
