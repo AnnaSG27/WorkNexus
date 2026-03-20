@@ -65,9 +65,13 @@ const Footer = () => {
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                <span className="text-white font-bold text-lg">P</span>
+                <img 
+                src="../public/images/Logo_WorkNexus.png" 
+                alt="WorkNexus Logo"
+                className="h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-md"
+              />
               </div>
-              <span className="font-display font-bold text-xl">ProTalent</span>
+              <span className="font-display font-bold text-xl">WorkNexus</span>
             </div>
             <p className="text-white/60 text-sm mb-6">
               La plataforma líder para conectar con freelancers profesionales.
@@ -104,26 +108,6 @@ const Footer = () => {
               </ul>
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Bottom Bar */}
-      <div className="border-t border-white/10">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-white/60">
-            <p>© 2024 ProTalent. Todos los derechos reservados.</p>
-            <div className="flex gap-6">
-              <a href="#" className="hover:text-white transition-colors">
-                Privacidad
-              </a>
-              <a href="#" className="hover:text-white transition-colors">
-                Términos
-              </a>
-              <a href="#" className="hover:text-white transition-colors">
-                Cookies
-              </a>
-            </div>
-          </div>
         </div>
       </div>
     </footer>
