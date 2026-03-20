@@ -80,6 +80,12 @@ const Navbar = () => {
                   </Link>
                 )}
 
+                <Link to="/profile">
+                  <Button variant="ghost" className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Mi perfil
+                  </Button>
+                </Link>
                 <Button
                   variant="ghost"
                   onClick={() => {
