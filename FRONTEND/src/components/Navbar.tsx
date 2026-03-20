@@ -6,6 +6,7 @@ import { Link } from "react-router-dom"
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const user = JSON.parse(localStorage.getItem("user") || "null");
 
   const navLinks = [
     { name: "Inicio", to: "/" },
@@ -49,16 +50,47 @@ const Navbar = () => {
             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <ShoppingCart className="h-5 w-5" />
             </Button>
-            <Link to="/login">
-              <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
-                Iniciar sesión
-              </Button>
-            </Link>
-            <Link to="/register">
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                Registrarse
-              </Button>
-            </Link>
+
+            {!user && (
+              <>
+                <Link to="/login">
+                  <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
+                    Iniciar sesión
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                    Registrarse
+                  </Button>
+                </Link>
+              </>
+            )}
+
+            {user && (
+              <>
+                {user.userType === "cliente" && (
+                  <Link to="/services">
+                    <Button variant="ghost">Mis solicitudes</Button>
+                  </Link>
+                )}
+
+                {user.userType === "freelancer" && (
+                  <Link to="/freelancers">
+                    <Button variant="ghost">Trabajos</Button>
+                  </Link>
+                )}
+
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    localStorage.removeItem("user");
+                    window.location.href = "/";
+                  }}
+                >
+                  Cerrar sesión
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
