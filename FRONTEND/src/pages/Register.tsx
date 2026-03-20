@@ -22,6 +22,24 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (password !== confirmPassword) {
+      alert("Las contraseñas no coinciden");
+      return;
+    }
+
+    // Validación según tipo de usuario
+    if (!userType) {
+      alert("Debes seleccionar un tipo de usuario");
+      return;
+    }
+
+    if (userType === "freelancer") {
+      if (!bio || !age) {
+        alert("La descripción y la edad son obligatorias para freelancers");
+        return;
+      }
+    }
+
     const data = {
       nombre,
       username,
@@ -47,7 +65,12 @@ export default function Register() {
       });
 
       const result = await response.json();
-      console.log("Respuesta del servidor:", result);
+
+      if (response.ok) {
+        alert("Usuario registrado correctamente");
+      } else {
+        alert("Error en registro: " + (result.error || "Error desconocido"));
+      }
     } catch (error) {
       console.error("Error al registrar:", error);
     }
@@ -114,6 +137,7 @@ export default function Register() {
                 id="confirmPassword"
                 type="password"
                 placeholder=""
+                value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
             </div>
@@ -218,7 +242,7 @@ export default function Register() {
                 <Input
                   id="age"
                   type="number"
-                  placeholder="sdfsdf"
+                  placeholder="Ingresa tu edad"
                   value={age}
                   onChange={(e) => setAge(e.target.value)}
                 />
