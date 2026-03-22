@@ -23,6 +23,7 @@ SEEDED_FREELANCERS = [
         "completedProjects": 124,
         "responseTime": "Responde en 45 minutos",
         "availability": "Disponible para empezar manana",
+        "isSample": True,
     },
     {
         "id": "seed-ana-rodriguez",
@@ -40,6 +41,7 @@ SEEDED_FREELANCERS = [
         "completedProjects": 181,
         "responseTime": "Responde en 1 hora",
         "availability": "Cupos abiertos esta semana",
+        "isSample": True,
     },
     {
         "id": "seed-david-lopez",
@@ -57,6 +59,7 @@ SEEDED_FREELANCERS = [
         "completedProjects": 86,
         "responseTime": "Responde en 2 horas",
         "availability": "Disponible por proyecto",
+        "isSample": True,
     },
     {
         "id": "seed-sofia-mendoza",
@@ -74,6 +77,7 @@ SEEDED_FREELANCERS = [
         "completedProjects": 109,
         "responseTime": "Responde en 30 minutos",
         "availability": "Disponible medio tiempo",
+        "isSample": True,
     },
     {
         "id": "seed-camilo-ruiz",
@@ -91,6 +95,7 @@ SEEDED_FREELANCERS = [
         "completedProjects": 97,
         "responseTime": "Responde en 50 minutos",
         "availability": "Disponible para proyectos largos",
+        "isSample": True,
     },
     {
         "id": "seed-laura-paredes",
@@ -108,6 +113,7 @@ SEEDED_FREELANCERS = [
         "completedProjects": 73,
         "responseTime": "Responde en 1 hora",
         "availability": "Disponible para nuevos clientes",
+        "isSample": True,
     },
     {
         "id": "seed-julian-castro",
@@ -125,6 +131,7 @@ SEEDED_FREELANCERS = [
         "completedProjects": 58,
         "responseTime": "Responde en 3 horas",
         "availability": "Disponible por entregables",
+        "isSample": True,
     },
     {
         "id": "seed-paula-vega",
@@ -142,6 +149,7 @@ SEEDED_FREELANCERS = [
         "completedProjects": 121,
         "responseTime": "Responde en 1 hora",
         "availability": "Disponible este mes",
+        "isSample": True,
     },
 ]
 
@@ -166,7 +174,8 @@ def _serialize_freelancer(profile):
     title = profile.bio.strip().splitlines()[0][:60] if profile.bio.strip() else "Profesional Freelancer"
     return {
         "id": profile.id,
-        "avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop",
+        "userId": user.id,
+        "avatar": "",
         "name": _build_name(user),
         "title": title,
         "location": _build_location(user),
@@ -180,6 +189,7 @@ def _serialize_freelancer(profile):
         "completedProjects": 12,
         "responseTime": "Responde en menos de 2 horas",
         "availability": "Disponible esta semana",
+        "isSample": False,
     }
 
 

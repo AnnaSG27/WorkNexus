@@ -1,16 +1,19 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Freelancers from "./pages/Freelancers";
 import Index from "./pages/Index";
-import Login from "./pages/login"
-import Register from "./pages/Register"
-import NotFound from "./pages/NotFound";
-import Services from "./pages/Services"
-import Freelancers from "./pages/Freelancers"
+import Login from "./pages/login";
 import MainLayout from "./pages/MainLayout";
-import Profile from "./pages/Profile"
+import Messages from "./pages/Messages";
+import NotFound from "./pages/NotFound";
+import Profile from "./pages/Profile";
+import Register from "./pages/Register";
+import SavedProfiles from "./pages/SavedProfiles";
+import Services from "./pages/Services";
 
 const queryClient = new QueryClient();
 
@@ -22,11 +25,12 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<MainLayout />}>
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route index element={<Index />}/>
+            <Route index element={<Index />} />
             <Route path="services" element={<Services />} />
             <Route path="freelancers" element={<Freelancers />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="saved-profiles" element={<SavedProfiles />} />
           </Route>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
