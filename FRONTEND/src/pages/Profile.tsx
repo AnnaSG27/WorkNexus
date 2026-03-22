@@ -6,13 +6,50 @@ import { Button } from "@/components/ui/button";
 
 const Profile = () => {
   const [user, setUser] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<any>({});
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      setFormData(parsedUser);
     }
   }, []);
+
+  const handleChange = (field: string, value: any) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSave = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/auth/editProfile/", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setUser(data.user);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        setIsEditing(false);
+        alert("Perfil actualizado correctamente");
+      } else {
+        alert(data.error || "Error al actualizar perfil");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Error de conexión con el servidor");
+    }
+  }
 
   if (!user) {
     return (
@@ -47,7 +84,13 @@ const Profile = () => {
             </div>
 
             <div className="ml-auto">
-              <Button variant="outline">Editar perfil</Button>
+              {isEditing ? (
+                <Button onClick={handleSave}>Guardar</Button>
+              ) : (
+                <Button variant="outline" onClick={() => setIsEditing(true)}>
+                  Editar perfil
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -61,8 +104,30 @@ const Profile = () => {
               <CardTitle>Información general</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <p><strong>Usuario:</strong> {user.username}</p>
-              <p><strong>Email:</strong> {user.email}</p>
+              <p>
+                <strong>Usuario:</strong>{" "}
+                {isEditing ? (
+                  <input
+                    className="border p-1 rounded"
+                    value={formData.username}
+                    onChange={(e) => handleChange("username", e.target.value)}
+                  />
+                ) : (
+                  user.username
+                )}
+              </p>
+              <p>
+                <strong>Email:</strong>{" "}
+                {isEditing ? (
+                  <input
+                    className="border p-1 rounded"
+                    value={formData.email}
+                    onChange={(e) => handleChange("email", e.target.value)}
+                  />
+                ) : (
+                  user.email
+                )}
+              </p>
             </CardContent>
           </Card>
 
@@ -73,7 +138,18 @@ const Profile = () => {
                 <CardTitle>Información de empresa</CardTitle>
               </CardHeader>
               <CardContent>
-                <p><strong>Empresa:</strong> {user.enterpriseName || "No especificado"}</p>
+                <p>
+                  <strong>Empresa:</strong>{" "}
+                  {isEditing ? (
+                    <input
+                      className="border p-1 rounded"
+                      value={formData.enterpriseName || ""}
+                      onChange={(e) => handleChange("enterpriseName", e.target.value)}
+                    />
+                  ) : (
+                    user.enterpriseName || "No especificado"
+                  )}
+                </p>
               </CardContent>
             </Card>
           )}
@@ -85,8 +161,31 @@ const Profile = () => {
                   <CardTitle>Perfil profesional</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <p><strong>Descripción:</strong> {user.bio || "No especificada"}</p>
-                  <p><strong>Edad:</strong> {user.age || "No especificada"}</p>
+                  <p>
+                    <strong>Descripción:</strong>{" "}
+                    {isEditing ? (
+                      <input
+                        className="border p-1 rounded w-full"
+                        value={formData.bio || ""}
+                        onChange={(e) => handleChange("bio", e.target.value)}
+                      />
+                    ) : (
+                      user.bio || "No especificada"
+                    )}
+                  </p>
+                  <p>
+                    <strong>Edad:</strong>{" "}
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        className="border p-1 rounded"
+                        value={formData.age || ""}
+                        onChange={(e) => handleChange("age", e.target.value)}
+                      />
+                    ) : (
+                      user.age || "No especificada"
+                    )}
+                  </p>
                 </CardContent>
               </Card>
 
