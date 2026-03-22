@@ -13,13 +13,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 
@@ -44,27 +38,16 @@ export interface FreelancerCardProps {
   featuredLabel?: string;
 }
 
-interface ChatMessage {
-  id: string;
-  author: "cliente" | "profesional";
-  text: string;
-  timeLabel: string;
-}
-
 interface FreelancerCardComponentProps extends FreelancerCardProps {
   isSaved?: boolean;
   onToggleSave?: (id: string | number | undefined) => void;
-  isDialogOpen?: boolean;
-  onDialogOpenChange?: (isOpen: boolean) => void;
+  isProfileDialogOpen?: boolean;
+  onProfileDialogOpenChange?: (isOpen: boolean) => void;
+  isChatDialogOpen?: boolean;
+  onChatDialogOpenChange?: (isOpen: boolean) => void;
   canUseChat?: boolean;
   onRequireClientLogin?: () => void;
 }
-
-const getTimeLabel = (date = new Date()) =>
-  date.toLocaleTimeString("es-CO", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
 
 const FreelancerCard = ({
   id,
@@ -87,21 +70,33 @@ const FreelancerCard = ({
   featuredLabel,
   isSaved = false,
   onToggleSave,
-  isDialogOpen,
-  onDialogOpenChange,
+  isProfileDialogOpen,
+  onProfileDialogOpenChange,
+  isChatDialogOpen,
+  onChatDialogOpenChange,
   canUseChat = false,
   onRequireClientLogin,
 }: FreelancerCardComponentProps) => {
-  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const [internalProfileOpen, setInternalProfileOpen] = useState(false);
+  const [internalChatOpen, setInternalChatOpen] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const [messages, setMessages] = useState([
     {
       id: "welcome",
-      author: "profesional",
+      author: "profesional" as const,
       text: `Hola, soy ${name}. Cuentame un poco sobre tu proyecto y con gusto revisamos como puedo ayudarte.`,
-      timeLabel: getTimeLabel(),
+      timeLabel: new Date().toLocaleTimeString("es-CO", {
+        hour: "numeric",
+        minute: "2-digit",
+      }),
     },
   ]);
+  const profileInitials = name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((value) => value[0]?.toUpperCase() ?? "")
+    .join("");
 
   const profileBio =
     bio ||
@@ -112,8 +107,10 @@ const FreelancerCard = ({
   const profileResponseTime = responseTime || "Responde en menos de 2 horas";
   const profileAvailability = availability || "Disponible esta semana";
   const proposalPrompt = `Hola ${name}, me interesa solicitar una propuesta para un proyecto relacionado con ${category || title}.`;
-  const dialogOpen = isDialogOpen ?? internalIsOpen;
-  const setDialogOpen = onDialogOpenChange ?? setInternalIsOpen;
+  const profileDialogOpen = isProfileDialogOpen ?? internalProfileOpen;
+  const setProfileDialogOpen = onProfileDialogOpenChange ?? setInternalProfileOpen;
+  const chatDialogOpen = isChatDialogOpen ?? internalChatOpen;
+  const setChatDialogOpen = onChatDialogOpenChange ?? setInternalChatOpen;
 
   const trustBadges = useMemo(() => {
     const badges: string[] = [];
@@ -126,11 +123,6 @@ const FreelancerCard = ({
     if (isVerified) badges.push("Verificado");
     return badges.slice(0, 3);
   }, [featuredLabel, isVerified, profileResponseTime, projectsDone, rating]);
-
-  const placeholderReply = useMemo(
-    () => "Gracias por escribirme. Ya revise tu mensaje y puedo ayudarte con una propuesta para este proyecto.",
-    [],
-  );
 
   const profileMetrics = [
     { label: "Tarifa", value: hourlyRate > 0 ? `$${hourlyRate}/hr` : "A convenir" },
@@ -150,20 +142,45 @@ const FreelancerCard = ({
     const nextMessage = (customMessage ?? draftMessage).trim();
     if (!nextMessage) return;
 
-    const now = Date.now();
-    const timeLabel = getTimeLabel();
+    const timeLabel = new Date().toLocaleTimeString("es-CO", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
 
-    setMessages((current) => [
-      ...current,
-      { id: `${now}-user`, author: "cliente", text: nextMessage, timeLabel },
-      { id: `${now + 1}-pro`, author: "profesional", text: placeholderReply, timeLabel: getTimeLabel() },
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      {
+        id: `client-${Date.now()}`,
+        author: "cliente",
+        text: nextMessage,
+        timeLabel,
+      },
     ]);
     setDraftMessage("");
 
-    toast({
-      title: "Mensaje enviado",
-      description: `Tu mensaje para ${name} quedo registrado en este chat.`,
-    });
+    window.setTimeout(() => {
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        {
+          id: `pro-${Date.now()}`,
+          author: "profesional",
+          text: "Gracias por escribirme. Ya revise tu mensaje y podemos seguir conversando desde aqui cuando quieras.",
+          timeLabel: new Date().toLocaleTimeString("es-CO", {
+            hour: "numeric",
+            minute: "2-digit",
+          }),
+        },
+      ]);
+    }, 700);
+  };
+
+  const handleOpenChat = () => {
+    if (!canUseChat) {
+      onRequireClientLogin?.();
+      return;
+    }
+
+    setChatDialogOpen(true);
   };
 
   return (
@@ -175,18 +192,24 @@ const FreelancerCard = ({
         viewport={{ once: true }}
         transition={{ delay: index * 0.1 }}
         whileHover={{ y: -8 }}
-        onClick={() => setDialogOpen(true)}
+        onClick={() => setProfileDialogOpen(true)}
         className="group w-full overflow-hidden rounded-[28px] border border-border bg-card p-6 text-left shadow-sm transition-all duration-300 hover:border-primary/20 hover:shadow-lg"
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-muted/80 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-4">
             <div className="relative">
-              <img
-                src={avatar}
-                alt={name}
-                className="h-16 w-16 rounded-2xl object-cover ring-4 ring-background shadow-sm"
-              />
+              {avatar ? (
+                <img
+                  src={avatar}
+                  alt={name}
+                  className="h-16 w-16 rounded-2xl object-cover ring-4 ring-background shadow-sm"
+                />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted text-lg font-semibold text-foreground ring-4 ring-background shadow-sm">
+                  {profileInitials || "WN"}
+                </div>
+              )}
               {isVerified && (
                 <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-secondary ring-2 ring-background">
                   <CheckCircle className="h-4 w-4 text-secondary-foreground" />
@@ -261,7 +284,7 @@ const FreelancerCard = ({
             className="rounded-full bg-primary px-5 text-primary-foreground hover:bg-primary/90"
             onClick={(event) => {
               event.stopPropagation();
-              setDialogOpen(true);
+              handleOpenChat();
             }}
           >
             Contactar
@@ -269,199 +292,241 @@ const FreelancerCard = ({
         </div>
       </motion.button>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-6xl overflow-hidden p-0">
-          <div className="grid max-h-[90vh] grid-cols-1 bg-background md:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
-            <div className="min-h-0 overflow-y-auto bg-background">
-              <div className="sticky top-0 z-10 border-b border-border/80 bg-background/95 px-6 py-5 backdrop-blur md:px-8">
-                <DialogHeader className="text-left">
-                  <DialogTitle className="text-2xl md:text-3xl">{name}</DialogTitle>
-                  <DialogDescription className="max-w-2xl text-sm leading-6 md:text-base">
-                    Perfil profesional con informacion clave, acciones rapidas y acceso a conversacion directa.
-                  </DialogDescription>
-                </DialogHeader>
-              </div>
+      <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-4xl overflow-y-auto rounded-[28px] border border-border bg-background p-0">
+          <div className="sticky top-0 z-10 border-b border-border/80 bg-background/95 px-6 py-5 backdrop-blur md:px-8">
+            <DialogHeader className="text-left">
+              <DialogTitle className="text-2xl md:text-3xl">{name}</DialogTitle>
+              <DialogDescription className="max-w-2xl text-sm leading-6 md:text-base">
+                Perfil profesional con informacion clave y detalles para evaluar si encaja con tu proyecto.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-              <div className="space-y-6 p-6 md:p-8">
-                <section className="rounded-[28px] border border-border/80 bg-gradient-to-br from-card via-card to-muted/20 p-6 shadow-sm">
-                  <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-                    <div className="relative">
-                      <img
-                        src={avatar}
-                        alt={name}
-                        className="h-28 w-28 rounded-[28px] object-cover ring-4 ring-muted shadow-sm"
-                      />
-                      {isVerified && (
-                        <div className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full bg-secondary ring-4 ring-background">
-                          <CheckCircle className="h-4 w-4 text-secondary-foreground" />
-                        </div>
-                      )}
+          <div className="space-y-6 p-6 md:p-8">
+            <section className="rounded-[28px] border border-border/80 bg-gradient-to-br from-card via-card to-muted/20 p-6 shadow-sm">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+                <div className="relative">
+                  {avatar ? (
+                    <img
+                      src={avatar}
+                      alt={name}
+                      className="h-28 w-28 rounded-[28px] object-cover ring-4 ring-muted shadow-sm"
+                    />
+                  ) : (
+                    <div className="flex h-28 w-28 items-center justify-center rounded-[28px] bg-muted text-3xl font-semibold text-foreground ring-4 ring-muted shadow-sm">
+                      {profileInitials || "WN"}
                     </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-2xl font-semibold text-foreground md:text-[1.7rem]">{title}</h3>
-                        {category && <Badge variant="outline">{category}</Badge>}
-                        {trustBadges.map((badge) => (
-                          <Badge key={badge} className="border-transparent bg-secondary text-secondary-foreground hover:bg-secondary">
-                            {badge}
-                          </Badge>
-                        ))}
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
-                          {location}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <Star className="h-4 w-4 fill-primary text-primary" />
-                          {rating} con {reviews} resenas
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <Briefcase className="h-4 w-4" />
-                          {projectsDone} proyectos completados
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <Clock3 className="h-4 w-4" />
-                          {profileResponseTime}
-                        </span>
-                      </div>
-
-                      <div className="mt-5 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
-                        {profileMetrics.map((metric) => (
-                          <div key={metric.label} className="border-b border-border/60 pb-3">
-                            <p className="text-xs uppercase tracking-wide text-muted-foreground">{metric.label}</p>
-                            <p className="mt-1 text-sm font-medium leading-6 text-foreground">{metric.value}</p>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="mt-5 flex flex-wrap gap-3">
-                        <Button
-                          type="button"
-                          className="rounded-full bg-primary px-5 text-primary-foreground hover:bg-primary/90"
-                          onClick={() => handleSendMessage(proposalPrompt)}
-                        >
-                          Solicitar propuesta
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="rounded-full bg-background"
-                          onClick={() => {
-                            const chatContainer = document.querySelector("[data-chat-panel='true']");
-                            chatContainer?.scrollIntoView({ behavior: "smooth", block: "start" });
-                          }}
-                        >
-                          Abrir chat
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="rounded-full bg-background"
-                          onClick={() => onToggleSave?.(id)}
-                        >
-                          <Heart className={`mr-2 h-4 w-4 ${isSaved ? "fill-current text-primary" : ""}`} />
-                          {isSaved ? "Quitar de favoritos" : "Guardar en favoritos"}
-                        </Button>
-                      </div>
+                  )}
+                  {isVerified && (
+                    <div className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full bg-secondary ring-4 ring-background">
+                      <CheckCircle className="h-4 w-4 text-secondary-foreground" />
                     </div>
-                  </div>
-                </section>
+                  )}
+                </div>
 
-                <section className="rounded-[24px] border border-border/80 bg-card p-5 shadow-sm">
-                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Resumen del perfil</h4>
-                  <p className="text-sm leading-7 text-foreground">{profileBio}</p>
-                </section>
-
-                <section className="rounded-[24px] border border-border/80 bg-card p-5 shadow-sm">
-                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Habilidades principales</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {skills.map((skill) => (
-                      <Badge key={skill} variant="secondary">
-                        {skill}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-2xl font-semibold text-foreground md:text-[1.7rem]">{title}</h3>
+                    {category && <Badge variant="outline">{category}</Badge>}
+                    {trustBadges.map((badge) => (
+                      <Badge key={badge} className="border-transparent bg-secondary text-secondary-foreground hover:bg-secondary">
+                        {badge}
                       </Badge>
                     ))}
                   </div>
-                </section>
-              </div>
-            </div>
 
-            <div data-chat-panel="true" className="min-h-0 overflow-y-auto border-t border-border bg-muted/20 md:border-l md:border-t-0">
-              <div className="sticky top-0 z-10 border-b border-border/70 bg-background/90 px-6 py-5 backdrop-blur md:px-8">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <MessageCircle className="h-5 w-5 text-primary" />
-                    <div>
-                      <h4 className="text-lg font-semibold text-foreground">Chat con {name}</h4>
-                      <p className="text-sm text-muted-foreground">Conversacion directa sobre tu proyecto</p>
-                    </div>
+                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="h-4 w-4" />
+                      {location}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Star className="h-4 w-4 fill-primary text-primary" />
+                      {rating} con {reviews} resenas
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Briefcase className="h-4 w-4" />
+                      {projectsDone} proyectos completados
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Clock3 className="h-4 w-4" />
+                      {profileResponseTime}
+                    </span>
                   </div>
-                  {isSaved && (
-                    <Badge className="border-transparent bg-secondary text-secondary-foreground hover:bg-secondary">
-                      En favoritos
-                    </Badge>
-                  )}
+
+                  <div className="mt-5 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {profileMetrics.map((metric) => (
+                      <div key={metric.label} className="border-b border-border/60 pb-3">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">{metric.label}</p>
+                        <p className="mt-1 text-sm font-medium leading-6 text-foreground">{metric.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <Button
+                      type="button"
+                      className="rounded-full bg-primary px-5 text-primary-foreground hover:bg-primary/90"
+                      onClick={() => {
+                        setProfileDialogOpen(false);
+                        handleOpenChat();
+                      }}
+                    >
+                      Contactar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-full bg-background"
+                      onClick={() => onToggleSave?.(id)}
+                    >
+                      <Heart className={`mr-2 h-4 w-4 ${isSaved ? "fill-current text-primary" : ""}`} />
+                      {isSaved ? "Quitar de favoritos" : "Guardar en favoritos"}
+                    </Button>
+                  </div>
                 </div>
               </div>
+            </section>
 
-              <div className="flex min-h-full flex-col p-6 md:p-8">
-                <div className="mb-4 flex justify-center">
-                  <span className="rounded-full border border-border bg-background px-3 py-1 text-xs uppercase tracking-wide text-muted-foreground">
-                    Hoy
+            <section className="rounded-[24px] border border-border/80 bg-card p-5 shadow-sm">
+              <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Resumen del perfil</h4>
+              <p className="text-sm leading-7 text-foreground">{profileBio}</p>
+            </section>
+
+            <section className="rounded-[24px] border border-border/80 bg-card p-5 shadow-sm">
+              <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Habilidades principales</h4>
+              <div className="flex flex-wrap gap-2">
+                {skills.map((skill) => (
+                  <Badge key={skill} variant="secondary">
+                    {skill}
+                  </Badge>
+                ))}
+              </div>
+            </section>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={chatDialogOpen} onOpenChange={setChatDialogOpen}>
+        <DialogContent className="flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-3xl flex-col overflow-hidden rounded-[28px] border border-border bg-background p-0">
+          <div className="border-b border-border bg-gradient-to-r from-card via-card to-muted/20 px-6 py-5 md:px-8">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="relative">
+                  {avatar ? (
+                    <img src={avatar} alt={name} className="h-14 w-14 rounded-2xl object-cover shadow-sm" />
+                  ) : (
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-sm font-semibold text-foreground shadow-sm">
+                      {profileInitials || "WN"}
+                    </div>
+                  )}
+                  <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-background bg-emerald-500" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="truncate text-lg font-semibold text-foreground">Chat con {name}</h4>
+                  <p className="truncate text-sm text-muted-foreground">
+                    {title} · {location}
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-emerald-600">Disponible para conversar</span>
+                    {isSaved && (
+                      <Badge className="border-transparent bg-secondary text-secondary-foreground hover:bg-secondary">
+                        En favoritos
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col bg-[radial-gradient(circle_at_top,_rgba(120,119,198,0.08),_transparent_35%),linear-gradient(to_bottom,_hsl(var(--background)),_hsl(var(--muted)/0.45))]">
+            <div className="flex-1 overflow-y-auto px-4 py-5 md:px-6">
+              <div className="space-y-4">
+                <div className="flex justify-center">
+                  <span className="rounded-full border border-border bg-background/90 px-3 py-1 text-[11px] uppercase tracking-[0.25em] text-muted-foreground shadow-sm">
+                    Conversacion activa
                   </span>
                 </div>
 
-                <div className="min-h-[280px] flex-1 space-y-3 overflow-y-auto rounded-[24px] border border-border bg-background p-4 shadow-sm">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
-                        message.author === "cliente"
-                          ? "ml-auto bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground"
-                      }`}
-                    >
-                      <p>{message.text}</p>
-                      <p
-                        className={`mt-2 text-[11px] ${
-                          message.author === "cliente" ? "text-primary-foreground/80" : "text-muted-foreground"
-                        }`}
-                      >
-                        {message.timeLabel}
-                      </p>
-                    </div>
-                  ))}
+                {messages.map((message) => {
+                  const isClientMessage = message.author === "cliente";
 
-                  {messages.length === 1 && canUseChat && (
-                    <div className="rounded-2xl border border-dashed border-border bg-muted/30 px-4 py-4 text-sm text-muted-foreground">
-                      Todavia no has iniciado la conversacion. Puedes enviar un mensaje directo o pedir una propuesta para empezar.
+                  return (
+                    <div key={message.id} className={`flex ${isClientMessage ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[85%] rounded-[24px] px-4 py-3 shadow-sm ${
+                        isClientMessage
+                          ? "rounded-br-md bg-primary text-primary-foreground"
+                          : "rounded-bl-md border border-border bg-background text-foreground"
+                      }`}>
+                        <p className="text-sm leading-6">{message.text}</p>
+                        <div className={`mt-2 flex items-center gap-2 text-[11px] ${
+                          isClientMessage ? "justify-end text-primary-foreground/80" : "text-muted-foreground"
+                        }`}>
+                          {!isClientMessage && <span>{name}</span>}
+                          <span>{message.timeLabel}</span>
+                        </div>
+                      </div>
                     </div>
-                  )}
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="border-t border-border bg-background/95 px-4 py-4 backdrop-blur md:px-6">
+              <div className="mb-3 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  className="rounded-full bg-primary px-4 text-primary-foreground hover:bg-primary/90"
+                  onClick={() => handleSendMessage(proposalPrompt)}
+                  disabled={!canUseChat}
+                >
+                  Solicitar propuesta
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-full bg-background"
+                  onClick={() => onToggleSave?.(id)}
+                >
+                  <Heart className={`mr-2 h-4 w-4 ${isSaved ? "fill-current text-primary" : ""}`} />
+                  {isSaved ? "Quitar de favoritos" : "Guardar"}
+                </Button>
+              </div>
+
+              {!canUseChat && (
+                <div className="mb-3 rounded-2xl border border-dashed border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+                  Inicia sesion como cliente para escribir en el chat y continuar la conversacion.
                 </div>
+              )}
 
-                <div className="mt-4 shrink-0 space-y-3 pb-1">
-                  {!canUseChat && (
-                    <div className="rounded-2xl border border-dashed border-border bg-background px-4 py-3 text-sm text-muted-foreground">
-                      Inicia sesion como cliente para escribir en el chat, pedir una propuesta y continuar la conversacion.
-                    </div>
-                  )}
-                  <Textarea
-                    value={draftMessage}
-                    onChange={(event) => setDraftMessage(event.target.value)}
-                    placeholder="Escribe aqui los detalles de tu proyecto..."
-                    className="min-h-24 rounded-2xl border-border bg-background resize-none shadow-sm"
-                    disabled={!canUseChat}
-                  />
+              <div className="rounded-[26px] border border-border bg-muted/30 p-3 shadow-sm">
+                <Textarea
+                  value={draftMessage}
+                  onChange={(event) => setDraftMessage(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder="Escribe un mensaje sobre tu proyecto, presupuesto o tiempos..."
+                  className="min-h-24 resize-none border-0 bg-transparent px-2 py-1 shadow-none focus-visible:ring-0"
+                  disabled={!canUseChat}
+                />
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    Enter para enviar, Shift + Enter para salto de linea
+                  </p>
                   <Button
                     type="button"
                     onClick={() => handleSendMessage()}
-                    className="w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-                    disabled={!canUseChat}
+                    className="rounded-full bg-primary px-5 text-primary-foreground hover:bg-primary/90"
+                    disabled={!canUseChat || !draftMessage.trim()}
                   >
                     <Send className="mr-2 h-4 w-4" />
-                    Enviar mensaje
+                    Enviar
                   </Button>
                 </div>
               </div>

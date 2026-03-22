@@ -166,7 +166,8 @@ def _serialize_freelancer(profile):
     title = profile.bio.strip().splitlines()[0][:60] if profile.bio.strip() else "Profesional Freelancer"
     return {
         "id": profile.id,
-        "avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop",
+        "freelancerUserId": user.id,
+        "avatar": "",
         "name": _build_name(user),
         "title": title,
         "location": _build_location(user),

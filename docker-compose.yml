@@ -36,6 +36,11 @@ services:
       - ./BACKEND:/app
     environment:
       DJANGO_SETTINGS_MODULE: "WorkNexus.settings"
+      DB_HOST: "db"
+      DB_PORT: "5432"
+      DB_NAME: "WorkNexus"
+      DB_USER: "jose_anna"
+      DB_PASSWORD: "password123"
     command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 
 volumes:

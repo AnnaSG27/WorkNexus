@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Profile = () => {
   const [user, setUser] = useState<any>(null);
@@ -47,9 +48,9 @@ const Profile = () => {
       }
     } catch (error) {
       console.error("Error:", error);
-      alert("Error de conexión con el servidor");
+      alert("Error de conexion con el servidor");
     }
-  }
+  };
 
   if (!user) {
     return (
@@ -60,16 +61,12 @@ const Profile = () => {
   }
 
   return (
-    <div className="pt-24 p-6">
-      <div className="max-w-5xl mx-auto space-y-6">
-
-        {/* Header Profile */}
+    <div className="p-6 pt-24">
+      <div className="mx-auto max-w-5xl space-y-6">
         <Card className="shadow-lg">
           <CardContent className="flex items-center gap-6 p-6">
             <Avatar className="h-20 w-20">
-              <AvatarFallback>
-                {user.username?.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
+              <AvatarFallback>{user.username?.slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
 
             <div>
@@ -77,9 +74,7 @@ const Profile = () => {
               <p className="text-muted-foreground">{user.email}</p>
 
               <div className="mt-2">
-                <Badge>
-                  {user.userType === "cliente" ? "Cliente" : "Freelancer"}
-                </Badge>
+                <Badge>{user.userType === "cliente" ? "Cliente" : "Freelancer"}</Badge>
               </div>
             </div>
 
@@ -95,20 +90,17 @@ const Profile = () => {
           </CardContent>
         </Card>
 
-        {/* Info Section */}
-        <div className="grid md:grid-cols-2 gap-6">
-
-          {/* Información general */}
+        <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Información general</CardTitle>
+              <CardTitle>Informacion general</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <p>
                 <strong>Usuario:</strong>{" "}
                 {isEditing ? (
                   <input
-                    className="border p-1 rounded"
+                    className="rounded border p-1"
                     value={formData.username}
                     onChange={(e) => handleChange("username", e.target.value)}
                   />
@@ -120,7 +112,7 @@ const Profile = () => {
                 <strong>Email:</strong>{" "}
                 {isEditing ? (
                   <input
-                    className="border p-1 rounded"
+                    className="rounded border p-1"
                     value={formData.email}
                     onChange={(e) => handleChange("email", e.target.value)}
                   />
@@ -131,18 +123,17 @@ const Profile = () => {
             </CardContent>
           </Card>
 
-          {/* Info específica */}
           {user.userType === "cliente" && (
             <Card>
               <CardHeader>
-                <CardTitle>Información de empresa</CardTitle>
+                <CardTitle>Informacion de empresa</CardTitle>
               </CardHeader>
               <CardContent>
                 <p>
                   <strong>Empresa:</strong>{" "}
                   {isEditing ? (
                     <input
-                      className="border p-1 rounded"
+                      className="rounded border p-1"
                       value={formData.enterpriseName || ""}
                       onChange={(e) => handleChange("enterpriseName", e.target.value)}
                     />
@@ -162,10 +153,10 @@ const Profile = () => {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <p>
-                    <strong>Descripción:</strong>{" "}
+                    <strong>Descripcion:</strong>{" "}
                     {isEditing ? (
                       <input
-                        className="border p-1 rounded w-full"
+                        className="w-full rounded border p-1"
                         value={formData.bio || ""}
                         onChange={(e) => handleChange("bio", e.target.value)}
                       />
@@ -178,7 +169,7 @@ const Profile = () => {
                     {isEditing ? (
                       <input
                         type="number"
-                        className="border p-1 rounded"
+                        className="rounded border p-1"
                         value={formData.age || ""}
                         onChange={(e) => handleChange("age", e.target.value)}
                       />
@@ -191,17 +182,16 @@ const Profile = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Estadísticas</CardTitle>
+                  <CardTitle>Estadisticas</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <p>⭐ Rating: 4.8</p>
-                  <p>📦 Proyectos completados: 12</p>
+                  <p>Rating: 4.8</p>
+                  <p>Proyectos completados: 12</p>
                 </CardContent>
               </Card>
             </>
           )}
         </div>
-
       </div>
     </div>
   );

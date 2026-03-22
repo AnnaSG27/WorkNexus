@@ -3,6 +3,8 @@ export interface StoredUser {
   email?: string;
   username?: string;
   userType?: string;
+  clientProfileId?: string | number;
+  freelancerProfileId?: string | number;
 }
 
 export const getStoredUser = (): StoredUser | null => {

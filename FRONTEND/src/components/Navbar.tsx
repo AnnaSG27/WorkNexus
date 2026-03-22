@@ -1,49 +1,77 @@
 import { useState } from "react";
-import { Menu, X, Search, ShoppingCart, User } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown, Heart, Menu, Search, ShoppingCart, User, X } from "lucide-react";
+import { Link } from "react-router-dom";
+
+import { canUseClientFeatures, getStoredUser } from "./professionals-session";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "react-router-dom"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const user = JSON.parse(localStorage.getItem("user") || "null");
-
-  const navLinks = [
-    { name: "Inicio", to: "/" },
-    { name: "Servicios", to: "/services" },
-    { name: "Profesionales", to: "/freelancers" },
-  ];
+  const user = getStoredUser();
+  const canSaveFavorites = canUseClientFeatures(user);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border shadow-sm">
+    <nav className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-background/80 shadow-sm backdrop-blur-xl">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <a href="/" className="flex items-center gap-3 group">
-            <img 
-              src="../public/images/Logo_WorkNexus.png" 
+        <div className="flex h-16 items-center justify-between">
+          <a href="/" className="group flex items-center gap-3">
+            <img
+              src="../public/images/Logo_WorkNexus.png"
               alt="WorkNexus Logo"
-              className="h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-md"
+              className="h-10 w-auto object-contain drop-shadow-md transition-transform duration-300 group-hover:scale-110"
             />
-            <span className="font-display font-bold text-xl text-foreground tracking-tight group-hover:text-primary transition-colors">
+            <span className="font-display text-xl font-bold tracking-tight text-foreground transition-colors group-hover:text-primary">
               WorkNexus
             </span>
           </a>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
-              <Link to={link.to}
-                key={link.name}
-                className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
-              >
-                {link.name}
+          <div className="hidden items-center gap-8 md:flex">
+            <Link to="/" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+              Inicio
+            </Link>
+            <Link to="/services" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+              Servicios
+            </Link>
+            {canSaveFavorites ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    Profesionales
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-56 rounded-xl p-2">
+                  <DropdownMenuItem asChild className="rounded-lg">
+                    <Link to="/freelancers">Ver profesionales</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="rounded-lg">
+                    <Link to="/freelancers/saved" className="inline-flex items-center gap-2">
+                      <Heart className="h-4 w-4" />
+                      Perfiles Guardados
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link to="/freelancers" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+                Profesionales
               </Link>
-            ))}
+            )}
           </div>
 
-          {/* Desktop Actions */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden items-center gap-3 md:flex">
             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <Search className="h-5 w-5" />
             </Button>
@@ -55,13 +83,11 @@ const Navbar = () => {
               <>
                 <Link to="/login">
                   <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
-                    Iniciar sesión
+                    Iniciar sesion
                   </Button>
                 </Link>
                 <Link to="/register">
-                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                    Registrarse
-                  </Button>
+                  <Button className="bg-primary text-primary-foreground hover:bg-primary/90">Registrarse</Button>
                 </Link>
               </>
             )}
@@ -93,50 +119,63 @@ const Navbar = () => {
                     window.location.href = "/";
                   }}
                 >
-                  Cerrar sesión
+                  Cerrar sesion
                 </Button>
               </>
             )}
           </div>
 
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
             {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>
       </div>
 
-      {/* Mobile Menu */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-background border-b border-border"
+            className="border-b border-border bg-background md:hidden"
           >
-            <div className="container mx-auto px-4 py-4 space-y-4">
-              {navLinks.map((link) => (
-                <Link to={link.to}
-                  key={link.name}
-                  className="block text-muted-foreground hover:text-foreground transition-colors py-2"
+            <div className="container mx-auto space-y-4 px-4 py-4">
+              <Link
+                to="/"
+                className="block py-2 text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Inicio
+              </Link>
+              <Link
+                to="/services"
+                className="block py-2 text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Servicios
+              </Link>
+              <Link
+                to="/freelancers"
+                className="block py-2 text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Profesionales
+              </Link>
+              {canSaveFavorites && (
+                <Link
+                  to="/freelancers/saved"
+                  className="ml-4 flex items-center gap-2 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  {link.name}
+                  <Heart className="h-4 w-4" />
+                  Perfiles Guardados
                 </Link>
-              ))}
-              <div className="flex gap-2 pt-4 border-t border-border">
+              )}
+              <div className="flex gap-2 border-t border-border pt-4">
                 <Button variant="outline" className="flex-1">
-                  Iniciar sesión
+                  Iniciar sesion
                 </Button>
-                <Button className="flex-1 bg-primary text-primary-foreground">
-                  Registrarse
-                </Button>
+                <Button className="flex-1 bg-primary text-primary-foreground">Registrarse</Button>
               </div>
             </div>
           </motion.div>

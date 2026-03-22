@@ -76,10 +76,12 @@ class RegisterView(View):
 
             if user_type == "cliente":
                 user_data["enterpriseName"] = enterprise_name or ""
+                user_data["clientProfileId"] = user.client_profile.id
 
             elif user_type == "freelancer":
                 user_data["bio"] = bio or ""
                 user_data["age"] = int(age) if age else 0
+                user_data["freelancerProfileId"] = user.freelancer_profile.id
 
             return JsonResponse({
                 "message": "Usuario creado exitosamente",
@@ -148,10 +150,12 @@ class LoginView(View):
 
                 if user_type == "cliente":
                     user_data["enterpriseName"] = enterprise_name
+                    user_data["clientProfileId"] = user.client_profile.id
 
                 elif user_type == "freelancer":
                     user_data["bio"] = bio
                     user_data["age"] = age
+                    user_data["freelancerProfileId"] = user.freelancer_profile.id
 
                 return JsonResponse({
                     "message": "Login exitoso",
@@ -227,10 +231,12 @@ class EditProfileView(View):
 
             if user_type == "cliente":
                 user_data["enterpriseName"] = user.client_profile.enterprise_name
+                user_data["clientProfileId"] = user.client_profile.id
 
             elif user_type == "freelancer":
                 user_data["bio"] = user.freelancer_profile.bio
                 user_data["age"] = user.freelancer_profile.age
+                user_data["freelancerProfileId"] = user.freelancer_profile.id
 
             return JsonResponse({
                 "message": "Perfil actualizado correctamente",

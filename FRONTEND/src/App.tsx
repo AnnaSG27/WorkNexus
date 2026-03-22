@@ -11,6 +11,7 @@ import Services from "./pages/Services"
 import Freelancers from "./pages/Freelancers"
 import MainLayout from "./pages/MainLayout";
 import Profile from "./pages/Profile"
+import SavedFreelancers from "./pages/SavedFreelancers";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
             <Route index element={<Index />}/>
             <Route path="services" element={<Services />} />
             <Route path="freelancers" element={<Freelancers />} />
+            <Route path="freelancers/saved" element={<SavedFreelancers />} />
             <Route path="profile" element={<Profile />} />
           </Route>
           <Route path="/login" element={<Login />} />
