@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 const categories = [
   {
@@ -64,6 +65,17 @@ const categories = [
 
 const CategorySection = () => {
   const navigate = useNavigate();
+
+  const [counts, setCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    fetch("http://localhost:8000/services/category-count/")
+      .then(res => res.json())
+      .then(data => {
+        setCounts(data);
+      })
+      .catch(err => console.error(err));
+  }, []);
 
   return (
     <section id="categories" className="py-20 bg-background">
@@ -120,7 +132,9 @@ const CategorySection = () => {
               <h3 className="font-display font-semibold text-foreground text-lg mb-1 group-hover:text-primary transition-colors">
                 {category.name}
               </h3>
-              <p className="text-muted-foreground text-sm">{category.services}</p>
+              <p className="text-muted-foreground text-sm">
+                {counts[category.name.toLowerCase()] || 0} servicios
+              </p>
 
               {/* Hover Effect */}
               <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
