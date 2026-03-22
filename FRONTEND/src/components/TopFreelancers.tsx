@@ -1,3 +1,8 @@
+/**
+ * TopFreelancers Component
+ * --------------------------------------------------
+ * This component is responsible for displaying a list of freelancers.
+ */
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -15,6 +20,7 @@ import { toast } from "@/components/ui/use-toast";
 
 const API_URL = "http://localhost:8000/professionals/freelancers/";
 
+// Mock data used as fallback when API fails or is loading
 const fallbackFreelancers: FreelancerCardProps[] = [
   {
     id: "seed-maria-garcia",
@@ -225,6 +231,9 @@ interface FreelancersResponse {
   freelancers: FreelancerCardProps[];
 }
 
+/**
+ * Ensures that every freelancer object has all required fields.
+ */
 const normalizeFreelancer = (freelancer: FreelancerCardProps): FreelancerCardProps => ({
   ...freelancer,
   bio:
@@ -238,6 +247,7 @@ const normalizeFreelancer = (freelancer: FreelancerCardProps): FreelancerCardPro
 });
 
 const TopFreelancers = () => {
+  // ---------------- UI STATE ----------------
   const navigate = useNavigate();
   const [showAll, setShowAll] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -249,6 +259,8 @@ const TopFreelancers = () => {
   const canSaveFavorites = canUseClientFeatures(user);
   const { savedFreelancerIds, toggleFavorite } = useProfessionalFavorites(user, canSaveFavorites);
 
+  // ---------------- DATA FETCHING ----------------
+  // Fetch freelancers from backend
   const { data, isLoading } = useQuery({
     queryKey: ["freelancers"],
     queryFn: async (): Promise<FreelancersResponse> => {
@@ -262,6 +274,7 @@ const TopFreelancers = () => {
     retry: 1,
   });
 
+  // Normalize API data and merge with fallback data
   const apiFreelancers = data?.freelancers?.map(normalizeFreelancer) ?? [];
   const fallbackById = new Map(fallbackFreelancers.map((freelancer) => [String(freelancer.id), freelancer]));
   const mergedFreelancers = [
@@ -270,6 +283,8 @@ const TopFreelancers = () => {
   ];
   const freelancers = mergedFreelancers.length ? mergedFreelancers : fallbackFreelancers;
 
+  // ---------------- DERIVED STATE ----------------
+  // Extract unique categories dynamically from freelancers
   const categories = useMemo(
     () => ["Todas", ...Array.from(new Set(freelancers.map((freelancer) => freelancer.category || "General")))],
     [freelancers],
@@ -278,6 +293,7 @@ const TopFreelancers = () => {
   const shortlist = freelancers.filter((freelancer) => freelancer.id && savedFreelancerIds.includes(freelancer.id));
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
+  // Apply filtering logic (category + search)
   const filteredFreelancers = freelancers.filter((freelancer) => {
     const matchesCategory = selectedCategory === "Todas" || freelancer.category === selectedCategory;
     if (!matchesCategory) return false;
@@ -302,6 +318,7 @@ const TopFreelancers = () => {
     return searchableContent.includes(normalizedSearch);
   });
 
+  // Limit visible freelancers (pagination behavior)
   const visibleFreelancers = showAll ? filteredFreelancers : filteredFreelancers.slice(0, 4);
   const hasMoreThanPreview = filteredFreelancers.length > 4;
 
@@ -309,6 +326,8 @@ const TopFreelancers = () => {
     setIsLoginPromptOpen(true);
   };
 
+  // ---------------- USER INTERACTIONS ----------------
+  // Handle saving/removing freelancers from favorites
   const handleToggleSave = (id: string | number | undefined) => {
     if (id === undefined) return;
 
@@ -328,10 +347,13 @@ const TopFreelancers = () => {
     });
   };
 
+  // ---------------- UI RENDER ----------------
   return (
     <>
+      {/* Main section container for the freelancers page (background + spacing) */}
       <section id="freelancers" className="bg-gradient-to-b from-background via-background to-muted/20 py-20">
         <div className="container mx-auto px-4">
+          {/* Header section: title, subtitle and toggle button (Ver todos / Ver menos) */}
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="max-w-3xl">
               <motion.span
@@ -361,6 +383,7 @@ const TopFreelancers = () => {
                 Explora perfiles confiables, guarda tus favoritos y encuentra al profesional ideal para avanzar tu proyecto con claridad.
               </motion.p>
             </div>
+            {/* Search + results summary section (input, counters, info messages) */}
             <motion.div
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
@@ -382,6 +405,7 @@ const TopFreelancers = () => {
             </motion.div>
           </div>
 
+          {/* Category filter section (buttons to filter freelancers by category) */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -465,6 +489,7 @@ const TopFreelancers = () => {
             </div>
           </div>
 
+          {/* Favorites section: shows saved freelancers (only if any exist) */}
           {shortlist.length > 0 && (
             <div className="mb-10 rounded-[28px] border border-border bg-card/95 p-5 shadow-sm backdrop-blur">
               <div className="mb-4 flex items-center gap-2">
@@ -518,6 +543,7 @@ const TopFreelancers = () => {
             </div>
           )}
 
+          {/* Freelancers grid: main list rendered as cards (responsive layout) */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
             {(isLoading ? fallbackFreelancers.slice(0, 4) : visibleFreelancers).map((freelancer, index) => (
               <FreelancerCard
@@ -541,6 +567,7 @@ const TopFreelancers = () => {
             ))}
           </div>
 
+          {/* Empty state: shown when no freelancers match filters/search */}
           {!isLoading && filteredFreelancers.length === 0 && (
             <div className="mt-8 rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
               <h3 className="text-lg font-semibold text-foreground">No encontramos perfiles con esa busqueda</h3>
@@ -552,6 +579,7 @@ const TopFreelancers = () => {
         </div>
       </section>
 
+      {/* Login prompt modal: appears when user tries to save without being a client */}
       <Dialog open={isLoginPromptOpen} onOpenChange={setIsLoginPromptOpen}>
         <DialogContent className="max-w-md rounded-[28px] border border-border bg-background p-0 shadow-2xl">
           <div className="overflow-hidden rounded-[28px]">
