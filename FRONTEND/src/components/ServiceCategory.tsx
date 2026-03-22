@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useState } from "react";
+import ServiceCard from "./ServiceCard";
 
 const ServiceCategory = () => {
   const { category } = useParams();
@@ -37,29 +38,23 @@ const ServiceCategory = () => {
         {filteredServices.length === 0 ? (
           <p>No hay servicios disponibles en esta categoría</p>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredServices.map((service, index) => (
-              <Card key={index} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4 flex flex-col gap-2">
-                  
-                  <div className="flex justify-between items-start">
-                    <h2 className="text-lg font-semibold">
-                      {service.title}
-                    </h2>
-
-                    {service.freelancer_name && (
-                      <span className="text-xs bg-muted px-2 py-1 rounded">
-                        {service.freelancer_name}
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="text-sm text-muted-foreground">
-                    {service.description}
-                  </p>
-
-                </CardContent>
-              </Card>
+              <ServiceCard
+                key={index}
+                image={service.image || "https://via.placeholder.com/400x300"}
+                title={service.title}
+                freelancer={{
+                  name: service.freelancer_name || "Freelancer",
+                  avatar: service.freelancer_avatar || "https://via.placeholder.com/40",
+                  level: service.freelancer_level || "Nivel desconocido",
+                }}
+                rating={service.rating || 0}
+                reviews={service.reviews || 0}
+                price={service.price || 0}
+                deliveryTime={service.delivery_time || "N/A"}
+                index={index}
+              />
             ))}
           </div>
         )}
