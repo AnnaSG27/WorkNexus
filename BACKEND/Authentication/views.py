@@ -64,13 +64,26 @@ class RegisterView(View):
                     age=int(age) if age else 0
                 )
 
+            # Construir respuesta completa según tipo
+            user_data = {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "country": user.country,
+                "city": user.city,
+                "userType": user_type
+            }
+
+            if user_type == "cliente":
+                user_data["enterpriseName"] = enterprise_name or ""
+
+            elif user_type == "freelancer":
+                user_data["bio"] = bio or ""
+                user_data["age"] = int(age) if age else 0
+
             return JsonResponse({
                 "message": "Usuario creado exitosamente",
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email
-                }
+                "user": user_data
             }, status=201)
 
         except Exception as e:
@@ -112,13 +125,37 @@ class LoginView(View):
 
             if user is not None:
                 django_login(request, user)
+
+                # Determinar tipo de usuario y obtener perfil
+                if hasattr(user, "client_profile"):
+                    user_type = "cliente"
+                    enterprise_name = user.client_profile.enterprise_name
+                elif hasattr(user, "freelancer_profile"):
+                    user_type = "freelancer"
+                    bio = user.freelancer_profile.bio
+                    age = user.freelancer_profile.age
+                else:
+                    user_type = None
+
+                user_data = {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "country": user.country,
+                    "city": user.city,
+                    "userType": user_type
+                }
+
+                if user_type == "cliente":
+                    user_data["enterpriseName"] = enterprise_name
+
+                elif user_type == "freelancer":
+                    user_data["bio"] = bio
+                    user_data["age"] = age
+
                 return JsonResponse({
                     "message": "Login exitoso",
-                    "user": {
-                        "id": user.id,
-                        "username": user.username,
-                        "email": user.email
-                    }
+                    "user": user_data
                 }, status=200)
             else:
                 return JsonResponse({
@@ -127,6 +164,81 @@ class LoginView(View):
 
         except Exception as e:
             print("Error en login:", e)
+            return JsonResponse({
+                "error": "Error interno del servidor"
+            }, status=500)
+
+
+# --- EDIT PROFILE VIEW ---
+@method_decorator(csrf_exempt, name="dispatch")
+class EditProfileView(View):
+    def put(self, request):
+        try:
+            data = json.loads(request.body)
+
+            user_id = data.get("id")
+
+            if not user_id:
+                return JsonResponse({
+                    "error": "ID de usuario requerido"
+                }, status=400)
+
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+
+            user = User.objects.filter(id=user_id).first()
+
+            if not user:
+                return JsonResponse({
+                    "error": "Usuario no encontrado"
+                }, status=404)
+
+            # -------- ACTUALIZAR USER --------
+            user.username = data.get("username", user.username)
+            user.email = data.get("email", user.email)
+            user.save()
+
+            # -------- ACTUALIZAR PERFIL --------
+            user_type = data.get("userType")
+
+            if user_type == "cliente" and hasattr(user, "client_profile"):
+                profile = user.client_profile
+                profile.enterprise_name = data.get(
+                    "enterpriseName",
+                    profile.enterprise_name
+                )
+                profile.save()
+
+            elif user_type == "freelancer" and hasattr(user, "freelancer_profile"):
+                profile = user.freelancer_profile
+                profile.bio = data.get("bio", profile.bio)
+                profile.age = int(data.get("age", profile.age)) if data.get("age") else profile.age
+                profile.save()
+
+            # -------- RESPUESTA --------
+            user_data = {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "country": user.country,
+                "city": user.city,
+                "userType": user_type
+            }
+
+            if user_type == "cliente":
+                user_data["enterpriseName"] = user.client_profile.enterprise_name
+
+            elif user_type == "freelancer":
+                user_data["bio"] = user.freelancer_profile.bio
+                user_data["age"] = user.freelancer_profile.age
+
+            return JsonResponse({
+                "message": "Perfil actualizado correctamente",
+                "user": user_data
+            }, status=200)
+
+        except Exception as e:
+            print("Error en editProfile:", e)
             return JsonResponse({
                 "error": "Error interno del servidor"
             }, status=500)
