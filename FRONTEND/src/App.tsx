@@ -8,6 +8,7 @@ import Freelancers from "./pages/Freelancers";
 import Index from "./pages/Index";
 import Login from "./pages/login";
 import MainLayout from "./pages/MainLayout";
+import ServiceCategory from "./components/ServiceCategory";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Index />} />
             <Route path="services" element={<Services />} />
+            <Route path="/services/:category" element={<ServiceCategory />} />
             <Route path="freelancers" element={<Freelancers />} />
             <Route path="profile" element={<Profile />} />
             <Route path="messages" element={<Messages />} />

@@ -9,6 +9,8 @@ import {
   Music
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 const categories = [
   {
@@ -62,6 +64,19 @@ const categories = [
 ];
 
 const CategorySection = () => {
+  const navigate = useNavigate();
+
+  const [counts, setCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    fetch("http://localhost:8000/services/category-count/")
+      .then(res => res.json())
+      .then(data => {
+        setCounts(data);
+      })
+      .catch(err => console.error(err));
+  }, []);
+
   return (
     <section id="categories" className="py-20 bg-background">
       <div className="container mx-auto px-4">
@@ -98,15 +113,15 @@ const CategorySection = () => {
         {/* Categories Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
           {categories.map((category, index) => (
-            <motion.a
+            <motion.div
               key={category.name}
-              href="#"
+              onClick={() => navigate(`/services/${category.name.toLowerCase()}`)}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: index * 0.05 }}
+              transition={{ delay: index * 0.05 }}  
               whileHover={{ y: -8, scale: 1.02 }}
-              className="group relative overflow-hidden rounded-2xl bg-card p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-border"
+              className="group relative cursor-pointer overflow-hidden rounded-2xl bg-card p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-border"
             >
               {/* Icon Background */}
               <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${category.color} p-3 mb-4 group-hover:scale-110 transition-transform duration-300`}>
@@ -117,11 +132,13 @@ const CategorySection = () => {
               <h3 className="font-display font-semibold text-foreground text-lg mb-1 group-hover:text-primary transition-colors">
                 {category.name}
               </h3>
-              <p className="text-muted-foreground text-sm">{category.services}</p>
+              <p className="text-muted-foreground text-sm">
+                {counts[category.name.toLowerCase()] || 0} servicios
+              </p>
 
               {/* Hover Effect */}
               <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
-            </motion.a>
+            </motion.div>
           ))}
         </div>
       </div>
