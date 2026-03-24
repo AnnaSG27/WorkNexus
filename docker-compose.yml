@@ -36,7 +36,7 @@ services:
       - ./BACKEND:/app
     environment:
       DJANGO_SETTINGS_MODULE: "WorkNexus.settings"
-    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    command: ["sh", "/app/entrypoint.sh"]
 
 volumes:
   postgres_data:

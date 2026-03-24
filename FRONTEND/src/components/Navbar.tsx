@@ -1,49 +1,90 @@
 import { useState } from "react";
-import { Menu, X, Search, ShoppingCart, User } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown, Heart, Menu, MessageSquare, Search, ShoppingCart, User, X } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "react-router-dom"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { canUseClientFeatures, getStoredUser } from "@/components/professionals-session";
+import { useProfessionalFavorites } from "@/components/useProfessionalFavorites";
+import { fetchConversations } from "@/lib/chat";
 
 const Navbar = () => {
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const user = getStoredUser();
+  const canSaveFavorites = canUseClientFeatures(user);
+  const { savedFreelancerIds } = useProfessionalFavorites(user, canSaveFavorites);
+
+  const conversationsQuery = useQuery({
+    queryKey: ["messaging", "conversations", user?.id],
+    queryFn: () => fetchConversations(Number(user.id)),
+    enabled: Boolean(user?.id),
+    refetchInterval: 2500,
+  });
+
+  const unreadCount = conversationsQuery.data?.totalUnread ?? 0;
 
   const navLinks = [
     { name: "Inicio", to: "/" },
     { name: "Servicios", to: "/services" },
-    { name: "Profesionales", to: "/freelancers" },
   ];
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border shadow-sm">
+    <nav className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-background/80 shadow-sm backdrop-blur-xl">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <a href="/" className="flex items-center gap-3 group">
-            <img 
-              src="../public/images/Logo_WorkNexus.png" 
+        <div className="flex h-16 items-center justify-between">
+          <Link to="/" className="group flex items-center gap-3">
+            <img
+              src="/images/Logo_WorkNexus.png"
               alt="WorkNexus Logo"
-              className="h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-md"
+              className="h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-110"
             />
-            <span className="font-display font-bold text-xl text-foreground tracking-tight group-hover:text-primary transition-colors">
+            <span className="font-display text-xl font-bold tracking-tight text-foreground transition-colors group-hover:text-primary">
               WorkNexus
             </span>
-          </a>
+          </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden items-center gap-8 md:flex">
             {navLinks.map((link) => (
-              <Link to={link.to}
+              <Link
                 key={link.name}
-                className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
+                to={link.to}
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 {link.name}
               </Link>
             ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+                  Profesionales
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64 rounded-2xl p-2">
+                <DropdownMenuItem onSelect={() => navigate("/freelancers")}>Explorar profesionales</DropdownMenuItem>
+                {canSaveFavorites && (
+                  <DropdownMenuItem onSelect={() => navigate("/saved-profiles")} className="justify-between">
+                    <span className="flex items-center gap-2">
+                      <Heart className="h-4 w-4 text-primary" />
+                      Perfiles guardados
+                    </span>
+                    {savedFreelancerIds.length > 0 && <Badge>{savedFreelancerIds.length}</Badge>}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
-          {/* Desktop Actions */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden items-center gap-3 md:flex">
             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <Search className="h-5 w-5" />
             </Button>
@@ -55,19 +96,28 @@ const Navbar = () => {
               <>
                 <Link to="/login">
                   <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
-                    Iniciar sesión
+                    Iniciar sesion
                   </Button>
                 </Link>
                 <Link to="/register">
-                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                    Registrarse
-                  </Button>
+                  <Button className="bg-primary text-primary-foreground hover:bg-primary/90">Registrarse</Button>
                 </Link>
               </>
             )}
 
             {user && (
               <>
+                <Link to="/messages" className="relative">
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                    <MessageSquare className="h-5 w-5" />
+                  </Button>
+                  {unreadCount > 0 && (
+                    <Badge className="absolute -right-1 -top-1 min-w-5 justify-center border-transparent bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground hover:bg-primary">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </Badge>
+                  )}
+                </Link>
+
                 {user.userType === "cliente" && (
                   <Link to="/services">
                     <Button variant="ghost">Mis solicitudes</Button>
@@ -80,6 +130,13 @@ const Navbar = () => {
                   </Link>
                 )}
 
+                <Link to="/profile">
+                  <Button variant="ghost" className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Mi perfil
+                  </Button>
+                </Link>
+
                 <Button
                   variant="ghost"
                   onClick={() => {
@@ -87,51 +144,98 @@ const Navbar = () => {
                     window.location.href = "/";
                   }}
                 >
-                  Cerrar sesión
+                  Cerrar sesion
                 </Button>
               </>
             )}
           </div>
 
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
             {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>
       </div>
 
-      {/* Mobile Menu */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-background border-b border-border"
+            className="border-b border-border bg-background md:hidden"
           >
-            <div className="container mx-auto px-4 py-4 space-y-4">
+            <div className="container mx-auto space-y-4 px-4 py-4">
               {navLinks.map((link) => (
-                <Link to={link.to}
+                <Link
                   key={link.name}
-                  className="block text-muted-foreground hover:text-foreground transition-colors py-2"
+                  to={link.to}
+                  className="block py-2 text-muted-foreground transition-colors hover:text-foreground"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {link.name}
                 </Link>
               ))}
-              <div className="flex gap-2 pt-4 border-t border-border">
-                <Button variant="outline" className="flex-1">
-                  Iniciar sesión
-                </Button>
-                <Button className="flex-1 bg-primary text-primary-foreground">
-                  Registrarse
-                </Button>
-              </div>
+              <Link
+                to="/freelancers"
+                className="block py-2 text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Profesionales
+              </Link>
+              {canSaveFavorites && (
+                <Link
+                  to="/saved-profiles"
+                  className="block py-2 text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Perfiles guardados
+                </Link>
+              )}
+
+              {!user ? (
+                <div className="flex gap-2 border-t border-border pt-4">
+                  <Link to="/login" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="outline" className="w-full">
+                      Iniciar sesion
+                    </Button>
+                  </Link>
+                  <Link to="/register" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                    <Button className="w-full bg-primary text-primary-foreground">Registrarse</Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-2 border-t border-border pt-4">
+                  <Link to="/messages" className="block" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="outline" className="w-full justify-between">
+                      Mensajes
+                      {unreadCount > 0 && <Badge>{unreadCount}</Badge>}
+                    </Button>
+                  </Link>
+                  {canSaveFavorites && (
+                    <Link to="/saved-profiles" className="block" onClick={() => setIsMenuOpen(false)}>
+                      <Button variant="outline" className="w-full justify-between">
+                        Perfiles guardados
+                        {savedFreelancerIds.length > 0 && <Badge>{savedFreelancerIds.length}</Badge>}
+                      </Button>
+                    </Link>
+                  )}
+                  <Link to="/profile" className="block" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="outline" className="w-full">
+                      Mi perfil
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => {
+                      localStorage.removeItem("user");
+                      window.location.href = "/";
+                    }}
+                  >
+                    Cerrar sesion
+                  </Button>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

@@ -22,4 +22,5 @@ urlpatterns = [
     path("auth/", include("Authentication.urls")),
     path("professionals/", include("Professionals.urls")),
     path("services/", include("Services.urls")),
+    path("messaging/", include("Messaging.urls")),
 ]
