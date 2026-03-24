@@ -1,3 +1,8 @@
+/**
+ * TopFreelancers Component
+ * --------------------------------------------------
+ * This component is responsible for displaying a list of freelancers.
+ */
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -17,6 +22,7 @@ import { fetchConversations, getCurrentUserId, type ConversationSummary } from "
 const API_URL = "http://localhost:8000/professionals/freelancers/";
 const PAGE_SIZE = 8;
 
+// Mock data used as fallback when API fails or is loading
 const fallbackFreelancers: FreelancerCardProps[] = [
   { id: "seed-maria-garcia", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop", name: "Maria Garcia", title: "UX/UI Designer", location: "Barcelona, Espana", rating: 5.0, reviews: 189, skills: ["Figma", "Adobe XD", "Branding", "Prototyping"], hourlyRate: 65, isVerified: true, bio: "Disena experiencias digitales limpias y modernas para productos SaaS, ecommerce y apps moviles. Le gusta trabajar de cerca con clientes para aterrizar ideas y convertirlas en flujos intuitivos.", experience: "6 anos en diseno de producto y experiencia de usuario", completedProjects: 124, responseTime: "Responde en 45 minutos", availability: "Disponible para empezar manana", category: "Diseno", featuredLabel: "Top Rated", isSample: true },
   { id: "seed-ana-rodriguez", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop", name: "Ana Rodriguez", title: "Digital Marketing Expert", location: "Valencia, Espana", rating: 4.8, reviews: 256, skills: ["SEO", "SEM", "Social Media", "Analytics"], hourlyRate: 55, isVerified: true, bio: "Especialista en estrategia de crecimiento, anuncios de rendimiento y posicionamiento organico. Suele trabajar con marcas que quieren escalar sus ventas y mejorar conversiones.", experience: "7 anos llevando trafico y conversion a marcas digitales", completedProjects: 181, responseTime: "Responde en 1 hora", availability: "Cupos abiertos esta semana", category: "Marketing", featuredLabel: "Mas contratado", isSample: true },
@@ -35,6 +41,9 @@ interface FreelancersResponse {
   freelancers: FreelancerCardProps[];
 }
 
+/**
+ * Ensures that every freelancer object has all required fields.
+ */
 const normalizeFreelancer = (freelancer: FreelancerCardProps): FreelancerCardProps => ({
   ...freelancer,
   bio: freelancer.bio || `${freelancer.name} ofrece servicios como ${freelancer.title} y trabaja con enfoque en calidad, buena comunicacion y resultados claros para cada cliente.`,
@@ -59,6 +68,7 @@ const getConversationState = (freelancer: FreelancerCardProps, conversation?: Co
 };
 
 const TopFreelancers = () => {
+  // ---------------- UI STATE ----------------
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -72,6 +82,8 @@ const TopFreelancers = () => {
   const canSaveFavorites = canUseClientFeatures(user);
   const { savedFreelancerIds, toggleFavorite, getFavoriteEntry } = useProfessionalFavorites(user, canSaveFavorites);
 
+  // ---------------- DATA FETCHING ----------------
+  // Fetch freelancers from backend
   const { data, isLoading } = useQuery({
     queryKey: ["freelancers"],
     queryFn: async (): Promise<FreelancersResponse> => {
@@ -89,6 +101,7 @@ const TopFreelancers = () => {
     refetchInterval: 2500,
   });
 
+  // Normalize API data and merge with fallback data
   const apiFreelancers = data?.freelancers?.map(normalizeFreelancer) ?? [];
   const normalizedFallbackFreelancers = fallbackFreelancers.map(normalizeFreelancer);
   const fallbackById = new Map(normalizedFallbackFreelancers.map((freelancer) => [String(freelancer.id), freelancer]));
@@ -96,6 +109,8 @@ const TopFreelancers = () => {
   const freelancers = mergedFreelancers.length ? mergedFreelancers : normalizedFallbackFreelancers;
   const conversationsByUserId = new Map((conversationsQuery.data?.conversations ?? []).map((conversation) => [conversation.otherUser.id, conversation]));
 
+  // ---------------- DERIVED STATE ----------------
+  // Extract unique categories dynamically from freelancers
   const categories = useMemo(
     () => ["Todas", ...Array.from(new Set(freelancers.map((freelancer) => freelancer.category || "General")))],
     [freelancers],
@@ -104,6 +119,7 @@ const TopFreelancers = () => {
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const requestedProfileId = searchParams.get("profile");
 
+  // Apply filtering logic (category + search)
   const filteredFreelancers = freelancers.filter((freelancer) => {
     const matchesCategory = selectedCategory === "Todas" || freelancer.category === selectedCategory;
     if (!matchesCategory) return false;
@@ -129,6 +145,8 @@ const TopFreelancers = () => {
 
   const handleRequireClientLogin = () => setIsLoginPromptOpen(true);
 
+  // ---------------- USER INTERACTIONS ----------------
+  // Handle saving/removing freelancers from favorites
   const handleToggleSave = (id: string | number | undefined) => {
     if (id === undefined) return;
     if (!canSaveFavorites) return handleRequireClientLogin();
@@ -144,10 +162,13 @@ const TopFreelancers = () => {
     });
   };
 
+  // ---------------- UI RENDER ----------------
   return (
     <>
+      {/* Main section container for the freelancers page (background + spacing) */}
       <section id="freelancers" className="bg-gradient-to-b from-background via-background to-muted/20 py-20">
         <div className="container mx-auto px-4">
+          {/* Header section: title, subtitle and toggle button (Ver todos / Ver menos) */}
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="max-w-3xl">
               <motion.span initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="inline-flex rounded-full border border-border bg-muted/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-secondary shadow-sm">
@@ -247,6 +268,7 @@ const TopFreelancers = () => {
             ))}
           </div>
 
+          {/* Empty state: shown when no freelancers match filters/search */}
           {!isLoading && filteredFreelancers.length === 0 && (
             <div className="mt-8 rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
               <h3 className="text-lg font-semibold text-foreground">No encontramos perfiles con esa busqueda</h3>
@@ -256,6 +278,7 @@ const TopFreelancers = () => {
         </div>
       </section>
 
+      {/* Login prompt modal: appears when user tries to save without being a client */}
       <Dialog open={isLoginPromptOpen} onOpenChange={setIsLoginPromptOpen}>
         <DialogContent className="max-w-md rounded-[28px] border border-border bg-background p-0 shadow-2xl">
           <div className="overflow-hidden rounded-[28px]">
