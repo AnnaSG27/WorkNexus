@@ -25,7 +25,7 @@ const Navbar = () => {
 
   const conversationsQuery = useQuery({
     queryKey: ["messaging", "conversations", user?.id],
-    queryFn: () => fetchConversations(Number(user.id)),
+    queryFn: () => fetchConversations(Number(user?.id)),
     enabled: Boolean(user?.id),
     refetchInterval: 2500,
   });
@@ -85,13 +85,6 @@ const Navbar = () => {
           </div>
 
           <div className="hidden items-center gap-3 md:flex">
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-              <Search className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-              <ShoppingCart className="h-5 w-5" />
-            </Button>
-
             {!user && (
               <>
                 <Link to="/login">
@@ -117,18 +110,6 @@ const Navbar = () => {
                     </Badge>
                   )}
                 </Link>
-
-                {user.userType === "cliente" && (
-                  <Link to="/services">
-                    <Button variant="ghost">Mis solicitudes</Button>
-                  </Link>
-                )}
-
-                {user.userType === "freelancer" && (
-                  <Link to="/freelancers">
-                    <Button variant="ghost">Trabajos</Button>
-                  </Link>
-                )}
 
                 <Link to="/profile">
                   <Button variant="ghost" className="flex items-center gap-2">
