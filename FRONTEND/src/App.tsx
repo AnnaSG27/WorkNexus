@@ -12,6 +12,7 @@ import ServiceCategory from "./components/ServiceCategory";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
+import Projects from "./pages/Projects";
 import Register from "./pages/Register";
 import SavedProfiles from "./pages/SavedProfiles";
 import Services from "./pages/Services";
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/services/:category" element={<ServiceCategory />} />
             <Route path="freelancers" element={<Freelancers />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="projects" element={<Projects />} />
             <Route path="messages" element={<Messages />} />
             <Route path="saved-profiles" element={<SavedProfiles />} />
           </Route>

@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "Authentication",
     "Professionals",
     "Services",
+    "Projects",
     "rest_framework",
     "Messaging",
     "corsheaders",
