@@ -22,6 +22,7 @@ const Navbar = () => {
   const user = getStoredUser();
   const canSaveFavorites = canUseClientFeatures(user);
   const { savedFreelancerIds } = useProfessionalFavorites(user, canSaveFavorites);
+  const workLabel = user?.userType === "freelancer" ? "Mis trabajos" : "Mis proyectos";
 
   const conversationsQuery = useQuery({
     queryKey: ["messaging", "conversations", user?.id],
@@ -36,6 +37,7 @@ const Navbar = () => {
     { name: "Inicio", to: "/" },
     { name: "Servicios", to: "/services" },
     { name: "Proyectos", to: "/projects" },
+    ...(user ? [{ name: workLabel, to: "/orders" }] : []),
   ];
 
   return (
