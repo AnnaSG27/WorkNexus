@@ -14,6 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from Authentication.models import ClientProfile, FreelancerProfile
 from Messaging.models import Conversation, Message
+from order.services import ensure_project_application_order
 
 from .models import Project, ProjectApplication, ProjectFavorite
 
@@ -25,6 +26,13 @@ def _parse_json_body(request):
     if not request.body:
         return {}
     return json.loads(request.body)
+
+
+def _normalize_user_id(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _ensure_projects_schema():
@@ -205,7 +213,7 @@ class ProjectListCreateView(View):
 
     def _create_project_response(self, request):
         data = _parse_json_body(request)
-        client_id = data.get("clientId")
+        client_id = _normalize_user_id(data.get("clientId"))
         title = (data.get("title") or "").strip()
         description = (data.get("description") or "").strip()
         category = data.get("category") or "otros"
@@ -273,7 +281,7 @@ class ProjectDetailUpdateView(View):
     def patch(self, request, project_id):
         try:
             data = _parse_json_body(request)
-            user_id = data.get("userId")
+            user_id = _normalize_user_id(data.get("userId"))
             new_status = data.get("status")
 
             project = _base_projects_queryset().filter(id=project_id).first()
@@ -302,7 +310,7 @@ class ProjectDetailUpdateView(View):
     def delete(self, request, project_id):
         try:
             data = _parse_json_body(request)
-            user_id = data.get("userId")
+            user_id = _normalize_user_id(data.get("userId"))
 
             project = Project.objects.select_related("client__user").filter(id=project_id).first()
             if not project:
@@ -359,7 +367,7 @@ class ProjectApplicationListView(View):
 class ApplyToProjectView(View):
     def _apply_to_project_response(self, request, project_id):
         data = _parse_json_body(request)
-        freelancer_id = data.get("freelancerId")
+        freelancer_id = _normalize_user_id(data.get("freelancerId"))
         cover_letter = (data.get("coverLetter") or "").strip()
         proposed_budget = data.get("proposedBudget")
 
@@ -430,7 +438,7 @@ class ProjectApplicationUpdateView(View):
     def patch(self, request, application_id):
         try:
             data = _parse_json_body(request)
-            user_id = data.get("userId")
+            user_id = _normalize_user_id(data.get("userId"))
             new_status = data.get("status")
 
             application = (
@@ -468,6 +476,7 @@ class ProjectApplicationUpdateView(View):
                 project.status = "en_ejecucion"
                 project.is_open = False
                 project.save(update_fields=["status", "is_open"])
+                ensure_project_application_order(application)
                 conversation = _start_project_conversation(project, application.freelancer.user)
                 conversation_payload = {"conversationId": conversation.id}
             elif new_status == "rechazada" and project.status == "abierto":
@@ -503,7 +512,7 @@ class ProjectFavoriteToggleView(View):
     def post(self, request, project_id):
         try:
             data = _parse_json_body(request)
-            freelancer_id = data.get("freelancerId")
+            freelancer_id = _normalize_user_id(data.get("freelancerId"))
             freelancer_profile = FreelancerProfile.objects.filter(user_id=freelancer_id).first()
             if not freelancer_profile:
                 return JsonResponse({"error": "Solo los freelancers pueden guardar proyectos"}, status=403)

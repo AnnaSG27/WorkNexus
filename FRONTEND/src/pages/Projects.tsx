@@ -121,6 +121,7 @@ const Projects = () => {
   const [formState, setFormState] = useState<CreateProjectPayload>(initialForm);
   const [coverLetters, setCoverLetters] = useState<Record<number, string>>({});
   const [proposedBudgets, setProposedBudgets] = useState<Record<number, string>>({});
+  const [highlightedProjectId, setHighlightedProjectId] = useState<number | null>(null);
   const [filters, setFilters] = useState({
     search: "",
     category: "all",
@@ -271,6 +272,15 @@ const Projects = () => {
     createMutation.mutate();
   };
 
+  const handleOpenRecommendedProject = (projectId: number) => {
+    setHighlightedProjectId(projectId);
+
+    window.requestAnimationFrame(() => {
+      const projectCard = document.getElementById(`project-card-${projectId}`);
+      projectCard?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   if (!user) {
     return (
       <div className="relative overflow-hidden bg-background pt-20">
@@ -333,7 +343,11 @@ const Projects = () => {
   }
 
   const renderProjectCard = (project: Project) => (
-    <Card key={project.id} className="overflow-hidden border-border/70 shadow-md">
+    <Card
+      id={`project-card-${project.id}`}
+      key={project.id}
+      className={`overflow-hidden border-border/70 shadow-md transition-all ${highlightedProjectId === project.id ? "ring-2 ring-primary ring-offset-2" : ""}`}
+    >
       <CardHeader className="gap-4 border-b border-border/50 bg-muted/20">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -701,7 +715,9 @@ const Projects = () => {
                         <p className="font-medium text-foreground">{project.title}</p>
                         <p className="mt-1 text-sm text-muted-foreground">{project.enterpriseName || project.clientDisplayName}</p>
                         <p className="mt-3 text-sm text-foreground">{formatCopCurrency(project.budget)}</p>
-                        <Button className="mt-4 w-full" variant="outline" onClick={() => setActiveTab("explore")}>Seguir viendo</Button>
+                        <Button className="mt-4 w-full" variant="outline" onClick={() => handleOpenRecommendedProject(project.id)}>
+                          Seguir viendo
+                        </Button>
                       </div>
                     ))}
                   </CardContent>

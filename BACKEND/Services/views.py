@@ -8,10 +8,11 @@ from django.db.models import Count
 
 class ServiceWithFreelancerSerializer(serializers.ModelSerializer):
     freelancer_name = serializers.CharField(source="freelancer.user.username")
+    freelancer_id = serializers.IntegerField(source="freelancer.user.id")
 
     class Meta:
         model = Service
-        fields = ["id", "title", "description", "category", "freelancer_name"]
+        fields = ["id", "title", "description", "category", "freelancer_name", "freelancer_id"]
 
 class ServiceListView(APIView):
     def get(self, request):
