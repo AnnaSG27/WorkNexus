@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "Professionals",
     "Services",
     "Projects",
+    "Reviews",
     "order",
     "rest_framework",
     "Messaging",

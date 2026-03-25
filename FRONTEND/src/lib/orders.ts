@@ -41,6 +41,12 @@ export interface Order {
   freelancer: OrderParty;
   service: OrderServiceInfo | null;
   project: OrderProjectInfo | null;
+  projectReview: {
+    id: number;
+    rating: number;
+    comment: string;
+    createdAt: string;
+  } | null;
   application: OrderApplicationInfo | null;
 }
 

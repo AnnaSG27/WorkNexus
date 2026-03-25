@@ -1,13 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Briefcase, CheckCircle2, ClipboardList, FolderKanban, PlayCircle, XCircle } from "lucide-react";
+import { useState } from "react";
+import { Briefcase, CheckCircle2, ClipboardList, FolderKanban, PlayCircle, Sparkles, Star, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { getStoredUser } from "@/components/professionals-session";
 import { toast } from "@/hooks/use-toast";
 import { fetchOrders, updateOrder, type Order } from "@/lib/orders";
+import { createReview } from "@/lib/reviews";
 
 const statusOptions = [
   { value: "sin_iniciar", label: "Sin iniciar" },
@@ -29,6 +33,8 @@ const Orders = () => {
   const user = getStoredUser();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
+  const [reviewDraft, setReviewDraft] = useState({ rating: 5, comment: "" });
   const isFreelancer = user?.userType === "freelancer";
   const pageTitle = isFreelancer ? "Mis trabajos" : "Mis proyectos";
   const pageDescription = isFreelancer
@@ -44,15 +50,51 @@ const Orders = () => {
   const updateOrderMutation = useMutation({
     mutationFn: ({ orderId, status }: { orderId: number; status: Order["status"] }) =>
       updateOrder(orderId, { userId: user?.id ?? "", status }),
-    onSuccess: async () => {
+    onSuccess: async (data, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["orders"] }),
         queryClient.invalidateQueries({ queryKey: ["projects"] }),
       ]);
+      if (
+        !isFreelancer &&
+        variables.status === "terminado" &&
+        data.order.sourceType === "project" &&
+        data.order.project &&
+        !data.order.projectReview
+      ) {
+        setReviewOrder(data.order);
+        setReviewDraft({ rating: 5, comment: "" });
+        toast({ title: "Proyecto terminado", description: "Ahora puedes calificar al freelancer." });
+        return;
+      }
       toast({ title: "Estado actualizado", description: "La contratacion se actualizo correctamente." });
     },
     onError: (error: Error) => {
       toast({ title: "No se pudo actualizar", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const createReviewMutation = useMutation({
+    mutationFn: () =>
+      createReview({
+        clientId: user?.id ?? "",
+        projectId: reviewOrder?.project?.id ?? 0,
+        rating: reviewDraft.rating,
+        comment: reviewDraft.comment.trim(),
+      }),
+    onSuccess: async () => {
+      setReviewOrder(null);
+      setReviewDraft({ rating: 5, comment: "" });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["orders"] }),
+        queryClient.invalidateQueries({ queryKey: ["projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["freelancers"] }),
+        queryClient.invalidateQueries({ queryKey: ["profile", "reviews"] }),
+      ]);
+      toast({ title: "Reseña guardada", description: "La calificación quedó vinculada al perfil del freelancer." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "No se pudo guardar la reseña", description: error.message, variant: "destructive" });
     },
   });
 
@@ -174,6 +216,99 @@ const Orders = () => {
           )}
         </div>
       </section>
+
+      <Dialog open={Boolean(reviewOrder)} onOpenChange={(isOpen) => !isOpen && setReviewOrder(null)}>
+        <DialogContent className="overflow-hidden border-border/70 p-0 shadow-2xl sm:max-w-2xl">
+          <DialogHeader className="border-b border-border/70 bg-[radial-gradient(circle_at_top_left,_hsl(220_70%_45%_/_0.14),_transparent_32%),linear-gradient(180deg,hsl(210_20%_98%),hsl(210_20%_100%))] px-6 py-5 text-left md:px-7">
+            <div className="inline-flex w-fit items-center rounded-full bg-secondary/15 px-3 py-1 text-xs font-medium text-secondary">
+              <Sparkles className="mr-2 h-3.5 w-3.5" />
+              Reseña final del proyecto
+            </div>
+            <DialogTitle className="pt-2 text-2xl text-foreground">Califica al freelancer</DialogTitle>
+            <DialogDescription>
+              {reviewOrder
+                ? `Tu proyecto "${reviewOrder.title}" quedó terminado. Deja una reseña para ${reviewOrder.freelancer.displayName}.`
+                : "Deja una reseña del freelancer."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 px-6 py-6 md:px-7">
+            <div className="grid gap-4 rounded-[24px] border border-border/70 bg-background/90 p-5 shadow-sm md:grid-cols-[1.2fr_0.8fr]">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Proyecto</p>
+                <p className="mt-2 text-lg font-semibold text-foreground">{reviewOrder?.title}</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {reviewOrder?.description || "Cierre del proyecto con valoración final del trabajo entregado."}
+                </p>
+              </div>
+              <div className="rounded-[20px] border border-border/70 bg-muted/30 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Freelancer</p>
+                <p className="mt-2 text-base font-semibold text-foreground">{reviewOrder?.freelancer.displayName}</p>
+                <p className="mt-1 text-sm text-muted-foreground">@{reviewOrder?.freelancer.username}</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Badge variant="outline">{reviewOrder?.sourceType === "project" ? "Proyecto contratado" : "Servicio"}</Badge>
+                  {reviewOrder?.project && <Badge className="bg-secondary text-secondary-foreground">Terminado</Badge>}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-border/70 bg-background p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Calificación general</p>
+                  <p className="text-sm text-muted-foreground">Selecciona de 1 a 5 estrellas según tu experiencia.</p>
+                </div>
+                <div className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-sm font-medium text-foreground">
+                  <Star className="mr-2 h-4 w-4 fill-primary text-primary" />
+                  {reviewDraft.rating}.0 / 5
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+              {Array.from({ length: 5 }).map((_, index) => {
+                const selectedRating = index + 1;
+                const isActive = selectedRating <= reviewDraft.rating;
+                return (
+                  <button
+                    key={selectedRating}
+                    type="button"
+                    onClick={() => setReviewDraft((current) => ({ ...current, rating: selectedRating }))}
+                    className={`rounded-2xl border px-4 py-3 transition-all ${
+                      isActive
+                        ? "border-primary bg-primary/10 text-primary shadow-sm"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-primary/5"
+                    }`}
+                  >
+                    <span className={isActive ? "opacity-100" : "opacity-40"}>★</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <Textarea
+              value={reviewDraft.comment}
+              onChange={(event) => setReviewDraft((current) => ({ ...current, comment: event.target.value }))}
+              placeholder="Escribe una reseña corta sobre la calidad del trabajo, la comunicación y la entrega."
+              maxLength={500}
+              rows={5}
+              className="mt-5 resize-none border-border/70 bg-muted/20 focus-visible:ring-primary"
+            />
+          </div>
+
+          <DialogFooter className="border-t border-border/70 bg-background/90 px-6 py-5 md:px-7">
+            <Button variant="outline" className="rounded-full" onClick={() => setReviewOrder(null)}>
+              Después
+            </Button>
+            <Button
+              className="rounded-full px-6"
+              onClick={() => createReviewMutation.mutate()}
+              disabled={createReviewMutation.isPending || !reviewOrder?.project}
+            >
+              Guardar reseña
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

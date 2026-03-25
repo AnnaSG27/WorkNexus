@@ -9,6 +9,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from Authentication.models import ClientProfile, FreelancerProfile
+from Reviews.models import Review
 from Services.models import Service
 
 from .models import Order
@@ -30,6 +31,7 @@ def _normalize_user_id(value):
 
 def _ensure_order_schema():
     call_command("migrate", "order", interactive=False, verbosity=0)
+    call_command("migrate", "Reviews", interactive=False, verbosity=0)
 
 
 def _user_display_name(user):
@@ -40,6 +42,7 @@ def _user_display_name(user):
 def _serialize_order(order):
     client_user = order.client.user
     freelancer_user = order.freelancer.user
+    review = Review.objects.filter(project=order.project).first() if order.project_id else None
 
     return {
         "id": order.id,
@@ -80,6 +83,16 @@ def _serialize_order(order):
                 "status": order.project.status,
             }
             if order.project
+            else None
+        ),
+        "projectReview": (
+            {
+                "id": review.id,
+                "rating": review.rating,
+                "comment": review.comment,
+                "createdAt": review.created_at.isoformat(),
+            }
+            if review
             else None
         ),
         "application": (

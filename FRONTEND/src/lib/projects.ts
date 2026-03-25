@@ -40,6 +40,18 @@ export interface Project {
   favoriteCount: number;
   hasApplied: boolean;
   isFavorite: boolean;
+  assignedFreelancer: {
+    id: number;
+    profileId: number;
+    name: string;
+    displayName: string;
+  } | null;
+  review: {
+    id: number;
+    rating: number;
+    comment: string;
+    createdAt: string;
+  } | null;
   applications: ProjectApplication[];
 }
 

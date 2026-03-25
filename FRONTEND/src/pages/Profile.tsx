@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Star } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getStoredUser } from "@/components/professionals-session";
 import { fetchMyApplications, fetchProjects } from "@/lib/projects";
+import { fetchFreelancerReviews } from "@/lib/reviews";
 
 const Profile = () => {
   const [user, setUser] = useState<any>(null);
@@ -13,12 +16,10 @@ const Profile = () => {
   const [formData, setFormData] = useState<any>({});
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      setFormData(parsedUser);
-    }
+    const storedUser = getStoredUser();
+    if (!storedUser) return;
+    setUser(storedUser);
+    setFormData(storedUser);
   }, []);
 
   const historyQuery = useQuery({
@@ -30,6 +31,12 @@ const Profile = () => {
       return null;
     },
     enabled: Boolean(user?.id && user?.userType),
+  });
+
+  const reviewsQuery = useQuery({
+    queryKey: ["profile", "reviews", user?.id],
+    queryFn: () => fetchFreelancerReviews(user?.id ?? ""),
+    enabled: Boolean(user?.id && user?.userType === "freelancer"),
   });
 
   const handleChange = (field: string, value: any) => {
@@ -75,6 +82,8 @@ const Profile = () => {
 
   const clientSummary = historyQuery.data?.summary;
   const freelancerSummary = historyQuery.data?.summary;
+  const reviewsSummary = reviewsQuery.data?.summary;
+  const reviews = reviewsQuery.data?.reviews ?? [];
 
   return (
     <div className="p-6 pt-24">
@@ -149,6 +158,7 @@ const Profile = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Perfil profesional</CardTitle>
+                  <CardDescription>Tu información pública y la reputación que se construye con cada proyecto finalizado.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <p>
@@ -167,6 +177,17 @@ const Profile = () => {
                       user.age || "No especificada"
                     )}
                   </p>
+                  <div className="mt-4 rounded-xl border border-border bg-muted/20 p-4">
+                    <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4 fill-primary text-primary" />
+                      <p className="font-medium text-foreground">
+                        {reviewsSummary?.averageRating?.toFixed(1) ?? "0.0"} / 5
+                      </p>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {reviewsSummary?.reviewsCount ?? 0} reseñas recibidas
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -179,6 +200,37 @@ const Profile = () => {
                   <p><strong>Pendientes:</strong> {freelancerSummary?.pending ?? 0}</p>
                   <p><strong>En revision:</strong> {freelancerSummary?.reviewing ?? 0}</p>
                   <p><strong>Aceptadas:</strong> {freelancerSummary?.accepted ?? 0}</p>
+                </CardContent>
+              </Card>
+
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle>Reseñas recibidas</CardTitle>
+                  <CardDescription>Comentarios que dejaron tus clientes al finalizar proyectos.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {reviews.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Todavía no has recibido reseñas en proyectos finalizados.</p>
+                  ) : (
+                    reviews.map((review) => (
+                      <div key={review.id} className="rounded-xl border border-border bg-muted/20 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium text-foreground">{review.projectTitle}</p>
+                            <p className="text-sm text-muted-foreground">Cliente: {review.client.displayName}</p>
+                          </div>
+                          <div className="flex items-center gap-1 text-primary">
+                            {Array.from({ length: 5 }).map((_, index) => (
+                              <Star key={index} className={`h-4 w-4 ${index < review.rating ? "fill-current" : ""}`} />
+                            ))}
+                          </div>
+                        </div>
+                        <p className="mt-3 text-sm text-muted-foreground">
+                          {review.comment || "Sin comentario adicional."}
+                        </p>
+                      </div>
+                    ))
+                  )}
                 </CardContent>
               </Card>
             </>

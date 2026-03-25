@@ -1,4 +1,4 @@
-import { FormEvent, useDeferredValue, useMemo, useState } from "react";
+import { FormEvent, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -12,6 +12,7 @@ import {
   Search,
   Send,
   Sparkles,
+  Star,
   Target,
   Trash2,
   Users,
@@ -20,6 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -39,6 +41,7 @@ import {
   type CreateProjectPayload,
   type Project,
 } from "@/lib/projects";
+import { createReview } from "@/lib/reviews";
 
 const categoryOptions = [
   { value: "all", label: "Todas las categorias" },
@@ -121,6 +124,9 @@ const Projects = () => {
   const [formState, setFormState] = useState<CreateProjectPayload>(initialForm);
   const [coverLetters, setCoverLetters] = useState<Record<number, string>>({});
   const [proposedBudgets, setProposedBudgets] = useState<Record<number, string>>({});
+  const [reviewForms, setReviewForms] = useState<Record<number, { rating: number; comment: string }>>({});
+  const [reviewProject, setReviewProject] = useState<Project | null>(null);
+  const [pendingReviewProjectId, setPendingReviewProjectId] = useState<number | null>(null);
   const [highlightedProjectId, setHighlightedProjectId] = useState<number | null>(null);
   const [filters, setFilters] = useState({
     search: "",
@@ -175,7 +181,7 @@ const Projects = () => {
 
   const createMutation = useMutation({
     mutationFn: () => createProject({ ...formState, clientId: user?.id ?? "" }),
-    onSuccess: async () => {
+    onSuccess: async (data, variables) => {
       setFormState({ ...initialForm, clientId: "" });
       await invalidateAllProjectQueries();
       toast({ title: "Proyecto publicado", description: "Ya puedes empezar a recibir postulaciones." });
@@ -219,7 +225,7 @@ const Projects = () => {
 
   const projectStatusMutation = useMutation({
     mutationFn: ({ projectId, status }: { projectId: number; status: string }) => updateProjectStatus(projectId, user?.id ?? "", status),
-    onSuccess: async () => {
+    onSuccess: async (data, variables) => {
       await invalidateAllProjectQueries();
       toast({ title: "Proyecto actualizado", description: "El estado del proyecto se guardó correctamente." });
     },
@@ -256,7 +262,36 @@ const Projects = () => {
     },
   });
 
+  const reviewMutation = useMutation({
+    mutationFn: ({ projectId, rating, comment }: { projectId: number; rating: number; comment: string }) =>
+      createReview({
+        clientId: user?.id ?? "",
+        projectId,
+        rating,
+        comment,
+      }),
+    onSuccess: async (_, variables) => {
+      setReviewForms((current) => ({
+        ...current,
+        [variables.projectId]: { rating: 5, comment: "" },
+      }));
+      await Promise.all([
+        updateProjectStatus(variables.projectId, user?.id ?? "", "cerrado"),
+        queryClient.invalidateQueries({ queryKey: ["freelancers"] }),
+        queryClient.invalidateQueries({ queryKey: ["profile", "reviews"] }),
+      ]);
+      setReviewProject(null);
+      setPendingReviewProjectId(null);
+      await invalidateAllProjectQueries();
+      toast({ title: "Reseña guardada", description: "La calificación ya se sumó al perfil del freelancer." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "No se pudo guardar la reseña", description: error.message, variant: "destructive" });
+    },
+  });
+
   const projects = projectsQuery.data?.projects ?? [];
+  const visibleClientProjects = isClient ? projects.filter((project) => project.status !== "cerrado") : projects;
   const favoriteProjects = favoritesQuery.data?.projects ?? [];
   const myApplications = applicationsQuery.data?.applications ?? [];
 
@@ -279,6 +314,25 @@ const Projects = () => {
       const projectCard = document.getElementById(`project-card-${projectId}`);
       projectCard?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
+  };
+
+  const getReviewForm = (projectId: number) => reviewForms[projectId] ?? { rating: 5, comment: "" };
+
+  useEffect(() => {
+    if (!pendingReviewProjectId) return;
+    const matchedProject = projects.find((project) => project.id === pendingReviewProjectId);
+    if (!matchedProject) return;
+    if (matchedProject.status === "finalizado" && matchedProject.assignedFreelancer && !matchedProject.review) {
+      setReviewProject(matchedProject);
+      setPendingReviewProjectId(null);
+    }
+  }, [pendingReviewProjectId, projects]);
+
+  const handleClientProjectStatusChange = (project: Project, status: string) => {
+    if (status === "finalizado") {
+      setPendingReviewProjectId(project.id);
+    }
+    projectStatusMutation.mutate({ projectId: project.id, status });
   };
 
   if (!user) {
@@ -489,6 +543,100 @@ const Projects = () => {
                 </div>
               )}
             </div>
+
+            {false && project.status === "finalizado" && !project.assignedFreelancer && (
+              <>
+                <Separator />
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-medium text-amber-900">No se puede dejar reseña todavía</p>
+                  <p className="mt-1 text-sm text-amber-800">
+                    Para calificar al freelancer, primero debes haber aceptado una postulación en este proyecto.
+                  </p>
+                </div>
+              </>
+            )}
+
+            {false && project.status === "finalizado" && project.assignedFreelancer && (
+              <>
+                <Separator />
+                <div className="space-y-4 rounded-2xl border border-border bg-background p-4">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Reseña del freelancer</p>
+                    <p className="text-sm text-muted-foreground">
+                      {project.review
+                        ? `Ya calificaste a ${project.assignedFreelancer.displayName} en este proyecto.`
+                        : `Califica a ${project.assignedFreelancer.displayName} para actualizar su perfil.`}
+                    </p>
+                  </div>
+
+                  {project.review ? (
+                    <div className="space-y-2 rounded-xl border border-border/70 bg-muted/20 p-4">
+                      <div className="flex items-center gap-1 text-primary">
+                        {Array.from({ length: 5 }).map((_, index) => (
+                          <Star
+                            key={index}
+                            className={`h-4 w-4 ${index < project.review!.rating ? "fill-current" : ""}`}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {project.review.comment || "El cliente no dejó comentario adicional."}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        {Array.from({ length: 5 }).map((_, index) => {
+                          const selectedRating = index + 1;
+                          const form = getReviewForm(project.id);
+                          return (
+                            <button
+                              key={selectedRating}
+                              type="button"
+                              onClick={() =>
+                                setReviewForms((current) => ({
+                                  ...current,
+                                  [project.id]: { ...form, rating: selectedRating },
+                                }))
+                              }
+                              className="rounded-full border border-border bg-background p-2 text-primary transition hover:border-primary"
+                            >
+                              <Star className={`h-4 w-4 ${selectedRating <= form.rating ? "fill-current" : ""}`} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <Textarea
+                        value={getReviewForm(project.id).comment}
+                        onChange={(event) =>
+                          setReviewForms((current) => ({
+                            ...current,
+                            [project.id]: { ...getReviewForm(project.id), comment: event.target.value },
+                          }))
+                        }
+                        placeholder="Comparte una reseña corta sobre el trabajo, la comunicación o la calidad de entrega."
+                        maxLength={500}
+                      />
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-xs text-muted-foreground">Una reseña por proyecto finalizado.</p>
+                        <Button
+                          onClick={() =>
+                            reviewMutation.mutate({
+                              projectId: project.id,
+                              rating: getReviewForm(project.id).rating,
+                              comment: getReviewForm(project.id).comment.trim(),
+                            })
+                          }
+                          disabled={reviewMutation.isPending}
+                        >
+                          Guardar reseña
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
@@ -661,8 +809,8 @@ const Projects = () => {
                 <h2 className="text-2xl font-semibold text-foreground">Tus proyectos</h2>
                 <p className="text-sm text-muted-foreground">Gestiona estados, revisa postulantes y activa conversaciones cuando elijas talento.</p>
               </div>
-              {projects.map(renderProjectCard)}
-              {!projectsQuery.isLoading && projects.length === 0 && (
+              {visibleClientProjects.map(renderProjectCard)}
+              {!projectsQuery.isLoading && visibleClientProjects.length === 0 && (
                 <Card><CardContent className="p-6 text-sm text-muted-foreground">Aun no has publicado proyectos.</CardContent></Card>
               )}
             </div>
@@ -802,6 +950,84 @@ const Projects = () => {
           </Tabs>
         )}
       </section>
+
+      <Dialog open={Boolean(reviewProject)} onOpenChange={(isOpen) => !isOpen && setReviewProject(null)}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Califica al freelancer</DialogTitle>
+            <DialogDescription>
+              {reviewProject?.assignedFreelancer
+                ? `Deja una reseña para ${reviewProject.assignedFreelancer.displayName}. Al guardarla, este proyecto se archivará y saldrá de Mis proyectos.`
+                : "Deja una reseña del trabajo realizado."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {reviewProject && (
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-border bg-muted/20 p-4">
+                <p className="font-medium text-foreground">{reviewProject.title}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Freelancer: {reviewProject.assignedFreelancer?.displayName}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: 5 }).map((_, index) => {
+                  const selectedRating = index + 1;
+                  const form = getReviewForm(reviewProject.id);
+                  return (
+                    <button
+                      key={selectedRating}
+                      type="button"
+                      onClick={() =>
+                        setReviewForms((current) => ({
+                          ...current,
+                          [reviewProject.id]: { ...form, rating: selectedRating },
+                        }))
+                      }
+                      className="rounded-full border border-border bg-background p-3 text-primary transition hover:border-primary"
+                    >
+                      <Star className={`h-5 w-5 ${selectedRating <= form.rating ? "fill-current" : ""}`} />
+                    </button>
+                  );
+                })}
+              </div>
+
+              <Textarea
+                value={getReviewForm(reviewProject.id).comment}
+                onChange={(event) =>
+                  setReviewForms((current) => ({
+                    ...current,
+                    [reviewProject.id]: { ...getReviewForm(reviewProject.id), comment: event.target.value },
+                  }))
+                }
+                placeholder="Cuéntanos cómo fue la comunicación, la calidad del trabajo y si volverías a contratarlo."
+                maxLength={500}
+                rows={5}
+              />
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReviewProject(null)}>
+              Después
+            </Button>
+            <Button
+              onClick={() =>
+                reviewProject &&
+                reviewMutation.mutate({
+                  projectId: reviewProject.id,
+                  rating: getReviewForm(reviewProject.id).rating,
+                  comment: getReviewForm(reviewProject.id).comment.trim(),
+                })
+              }
+              disabled={reviewMutation.isPending || !reviewProject}
+            >
+              Guardar reseña y archivar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
