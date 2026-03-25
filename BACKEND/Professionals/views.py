@@ -1,9 +1,12 @@
 from django.http import JsonResponse
+from django.db import OperationalError, ProgrammingError
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from Authentication.models import FreelancerProfile
+from Projects.models import ProjectApplication
+from Reviews.services import ensure_reviews_schema, get_freelancer_review_stats
 
 
 SEEDED_FREELANCERS = [
@@ -172,6 +175,8 @@ def _build_skills(profile):
 def _serialize_freelancer(profile):
     user = profile.user
     title = profile.bio.strip().splitlines()[0][:60] if profile.bio.strip() else "Profesional Freelancer"
+    review_stats = get_freelancer_review_stats(profile)
+    completed_projects = ProjectApplication.objects.filter(freelancer=profile, status="aceptada").count()
     return {
         "id": profile.id,
         "userId": user.id,
@@ -179,14 +184,14 @@ def _serialize_freelancer(profile):
         "name": _build_name(user),
         "title": title,
         "location": _build_location(user),
-        "rating": 5.0,
-        "reviews": 0,
+        "rating": review_stats["averageRating"],
+        "reviews": review_stats["reviewsCount"],
         "skills": _build_skills(profile),
         "hourlyRate": 0,
         "isVerified": bool(user.email),
         "bio": profile.bio,
         "experience": "Profesional registrado en WorkNexus",
-        "completedProjects": 12,
+        "completedProjects": completed_projects,
         "responseTime": "Responde en menos de 2 horas",
         "availability": "Disponible esta semana",
         "isSample": False,
@@ -196,6 +201,12 @@ def _serialize_freelancer(profile):
 @method_decorator(csrf_exempt, name="dispatch")
 class FreelancerListView(View):
     def get(self, request):
-        profiles = FreelancerProfile.objects.select_related("user").all().order_by("-id")
-        freelancers = SEEDED_FREELANCERS + [_serialize_freelancer(profile) for profile in profiles]
-        return JsonResponse({"freelancers": freelancers}, status=200)
+        try:
+            profiles = FreelancerProfile.objects.select_related("user").all().order_by("-id")
+            freelancers = SEEDED_FREELANCERS + [_serialize_freelancer(profile) for profile in profiles]
+            return JsonResponse({"freelancers": freelancers}, status=200)
+        except (OperationalError, ProgrammingError):
+            ensure_reviews_schema()
+            profiles = FreelancerProfile.objects.select_related("user").all().order_by("-id")
+            freelancers = SEEDED_FREELANCERS + [_serialize_freelancer(profile) for profile in profiles]
+            return JsonResponse({"freelancers": freelancers}, status=200)

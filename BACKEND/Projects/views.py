@@ -14,6 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from Authentication.models import ClientProfile, FreelancerProfile
 from Messaging.models import Conversation, Message
+from Reviews.models import Review
 from order.services import ensure_project_application_order
 
 from .models import Project, ProjectApplication, ProjectFavorite
@@ -37,6 +38,7 @@ def _normalize_user_id(value):
 
 def _ensure_projects_schema():
     call_command("migrate", "Projects", interactive=False, verbosity=0)
+    call_command("migrate", "Reviews", interactive=False, verbosity=0)
 
 
 def _serialize_skills(skills):
@@ -72,6 +74,8 @@ def _serialize_project(project, freelancer_profile=None):
     favorite_count = project.favorites.count()
     has_applied = False
     is_favorite = False
+    accepted_application = next((application for application in applications if application.status == "aceptada"), None)
+    review = Review.objects.select_related("client__user", "freelancer__user").filter(project=project).first()
 
     if freelancer_profile:
         has_applied = any(application.freelancer_id == freelancer_profile.id for application in applications)
@@ -100,6 +104,18 @@ def _serialize_project(project, freelancer_profile=None):
         "favoriteCount": favorite_count,
         "hasApplied": has_applied,
         "isFavorite": is_favorite,
+        "assignedFreelancer": {
+            "id": accepted_application.freelancer.user.id,
+            "profileId": accepted_application.freelancer.id,
+            "name": accepted_application.freelancer.user.username,
+            "displayName": _user_display_name(accepted_application.freelancer.user),
+        } if accepted_application else None,
+        "review": {
+            "id": review.id,
+            "rating": review.rating,
+            "comment": review.comment,
+            "createdAt": review.created_at.isoformat(),
+        } if review else None,
         "applications": [_serialize_application(application) for application in applications],
     }
 
@@ -293,6 +309,17 @@ class ProjectDetailUpdateView(View):
             valid_statuses = {choice[0] for choice in Project.STATUS_CHOICES}
             if new_status not in valid_statuses:
                 return JsonResponse({"error": "Estado de proyecto no valido"}, status=400)
+
+            if new_status == "finalizado":
+                accepted_application_exists = ProjectApplication.objects.filter(
+                    project=project,
+                    status="aceptada",
+                ).exists()
+                if not accepted_application_exists:
+                    return JsonResponse(
+                        {"error": "Debes aceptar un freelancer antes de finalizar y calificar el proyecto"},
+                        status=400,
+                    )
 
             project.status = new_status
             project.is_open = new_status in {"abierto", "en_revision"}
