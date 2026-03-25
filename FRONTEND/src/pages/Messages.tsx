@@ -35,6 +35,7 @@ const Messages = () => {
   const user = getStoredUser();
   const currentUserId = getCurrentUserId();
   const contactUserId = Number(searchParams.get("contact") || 0) || null;
+  const requestedConversationId = Number(searchParams.get("conversation") || 0) || null;
 
   const conversationsQuery = useQuery({
     queryKey: ["messaging", "conversations", currentUserId],
@@ -92,6 +93,11 @@ const Messages = () => {
     if (!currentUserId || !contactUserId || currentUserId === contactUserId) return;
     startConversationMutation.mutate({ currentId: currentUserId, otherId: contactUserId });
   }, [contactUserId, currentUserId]);
+
+  useEffect(() => {
+    if (!requestedConversationId) return;
+    setSelectedConversationId(requestedConversationId);
+  }, [requestedConversationId]);
 
   useEffect(() => {
     if (selectedConversationId || conversations.length === 0) return;

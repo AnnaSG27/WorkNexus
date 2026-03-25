@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Heart, Menu, MessageSquare, Search, ShoppingCart, User, X } from "lucide-react";
+import { ChevronDown, Heart, Menu, MessageSquare, User, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ const Navbar = () => {
   const navLinks = [
     { name: "Inicio", to: "/" },
     { name: "Servicios", to: "/services" },
+    { name: "Proyectos", to: "/projects" },
   ];
 
   return (
