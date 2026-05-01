@@ -11,6 +11,7 @@ import {
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { API_URL } from "@/lib/api";
 
 const categories = [
   {
@@ -69,7 +70,7 @@ const CategorySection = () => {
   const [counts, setCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    fetch("http://localhost:8000/services/category-count/")
+    fetch(`${API_URL}/services/category-count/`)
       .then(res => res.json())
       .then(data => {
         setCounts(data);
