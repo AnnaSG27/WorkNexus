@@ -5,6 +5,7 @@ from .serializers import LoginSerializer, RegisterSerializer
 
 from django.contrib.auth import authenticate, get_user_model, login as django_login
 from .models import ClientProfile, FreelancerProfile
+from .services.user_registration_service import UserRegistrationService
 
 
 def _build_display_name(user):
@@ -25,11 +26,11 @@ def _serialize_user(user, user_type):
         "userType": user_type,
     }
 
-    if user_type == "cliente" and hasattr(user, "client_profile"):
+    if user_type == "cliente" and ClientProfile.objects.filter(user=user).exists():
         payload["enterpriseName"] = user.client_profile.enterprise_name
-    elif user_type == "freelancer" and hasattr(user, "freelancer_profile"):
+    elif user_type == "freelancer" and FreelancerProfile.objects.filter(user=user).exists():
         payload["bio"] = user.freelancer_profile.bio
-        payload["age"] = user.freelancer_profile.age
+        payload["date_of_birth"] = user.freelancer_profile.date_of_birth
 
     return payload
 
@@ -40,43 +41,32 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
 
         if not serializer.is_valid():
+            print(serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        data = request.data
+        try:
+            user = UserRegistrationService.register_user(
+                serializer.validated_data,
+                request.data
+            )
 
-        full_name = (data.get("nombre") or "").strip()
-        user_type = data.get("userType")
-        enterprise_name = data.get("enterpriseName")
-        bio = data.get("bio")
-        date_of_birth = data.get("date_of_birth")
+            user_type = serializer.validated_data.get("userType")
+            print("REQUEST DATA:", request.data)
+            print("VALIDATED DATA:", serializer.validated_data)
 
-        User = get_user_model()
+            return Response(
+                {
+                    "message": "Usuario creado exitosamente",
+                    "user": _serialize_user(user, user_type),
+                },
+                status=status.HTTP_201_CREATED,
+            )
 
-        username = serializer.validated_data.get("username")
-        if User.objects.filter(username=username).exists():
-            return Response({"error": "El usuario ya existe"}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        name_parts = full_name.split()
-        first_name = name_parts[0] if name_parts else ""
-        last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
-
-        user = serializer.save(
-            first_name=first_name,
-            last_name=last_name
-        )
-
-        if user_type == "cliente":
-            ClientProfile.objects.create(user=user, enterprise_name=enterprise_name or "")
-        elif user_type == "freelancer":
-            FreelancerProfile.objects.create(user=user, bio=bio or "", date_of_birth=int(date_of_birth) if date_of_birth else 0)
-
-        return Response(
-            {
-                "message": "Usuario creado exitosamente",
-                "user": _serialize_user(user, user_type),
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        except Exception:
+            return Response({"error": "Error interno"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class LoginView(APIView):
@@ -103,9 +93,9 @@ class LoginView(APIView):
 
         django_login(request, user)
 
-        if hasattr(user, "client_profile"):
+        if ClientProfile.objects.filter(user=user).exists():
             user_type = "cliente"
-        elif hasattr(user, "freelancer_profile"):
+        elif FreelancerProfile.objects.filter(user=user).exists():
             user_type = "freelancer"
         else:
             user_type = None
@@ -145,14 +135,14 @@ class EditProfileView(APIView):
 
         user_type = data.get("userType")
 
-        if user_type == "cliente" and hasattr(user, "client_profile"):
+        if user_type == "cliente" and ClientProfile.objects.filter(user=user).exists():
             profile = user.client_profile
             profile.enterprise_name = data.get("enterpriseName", profile.enterprise_name)
             profile.save()
-        elif user_type == "freelancer" and hasattr(user, "freelancer_profile"):
+        elif user_type == "freelancer" and FreelancerProfile.objects.filter(user=user).exists():
             profile = user.freelancer_profile
             profile.bio = data.get("bio", profile.bio)
-            profile.date_of_birth = int(data.get("date_of_birth", profile.date_of_birth)) if data.get("date_of_birth") else profile.date_of_birth
+            profile.date_of_birth = data.get("date_of_birth", profile.date_of_birth) if data.get("date_of_birth") else profile.date_of_birth
             profile.save()
 
         return Response(
