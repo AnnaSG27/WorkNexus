@@ -48,7 +48,7 @@ class RegisterView(APIView):
         user_type = data.get("userType")
         enterprise_name = data.get("enterpriseName")
         bio = data.get("bio")
-        age = data.get("age")
+        date_of_birth = data.get("date_of_birth")
 
         User = get_user_model()
 
@@ -68,7 +68,7 @@ class RegisterView(APIView):
         if user_type == "cliente":
             ClientProfile.objects.create(user=user, enterprise_name=enterprise_name or "")
         elif user_type == "freelancer":
-            FreelancerProfile.objects.create(user=user, bio=bio or "", age=int(age) if age else 0)
+            FreelancerProfile.objects.create(user=user, bio=bio or "", date_of_birth=int(date_of_birth) if date_of_birth else 0)
 
         return Response(
             {
@@ -152,7 +152,7 @@ class EditProfileView(APIView):
         elif user_type == "freelancer" and hasattr(user, "freelancer_profile"):
             profile = user.freelancer_profile
             profile.bio = data.get("bio", profile.bio)
-            profile.age = int(data.get("age", profile.age)) if data.get("age") else profile.age
+            profile.date_of_birth = int(data.get("date_of_birth", profile.date_of_birth)) if data.get("date_of_birth") else profile.date_of_birth
             profile.save()
 
         return Response(
