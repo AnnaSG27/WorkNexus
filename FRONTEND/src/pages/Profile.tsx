@@ -10,6 +10,7 @@ import { getStoredUser } from "@/components/professionals-session";
 import { fetchMyApplications, fetchProjects } from "@/lib/projects";
 import { fetchFreelancerReviews } from "@/lib/reviews";
 import { API_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/apiClient";
 
 const Profile = () => {
   const [user, setUser] = useState<any>(null);
@@ -49,7 +50,7 @@ const Profile = () => {
 
   const handleSave = async () => {
     try {
-      const response = await fetch(`${API_URL}/auth/editProfile/`, {
+      const response = await apiFetch(`${API_URL}/auth/editProfile/`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -171,11 +172,11 @@ const Profile = () => {
                     )}
                   </p>
                   <p>
-                    <strong>Edad:</strong>{" "}
+                    <strong>Fecha de Nacimiento:</strong>{" "}
                     {isEditing ? (
-                      <input type="number" className="rounded border p-1" value={formData.age || ""} onChange={(e) => handleChange("age", e.target.value)} />
+                      <input type="number" className="rounded border p-1" value={formData.date_of_birth || ""} onChange={(e) => handleChange("date_of_birth", e.target.value)} />
                     ) : (
-                      user.age || "No especificada"
+                      user.date_of_birth || "No especificada"
                     )}
                   </p>
                   <div className="mt-4 rounded-xl border border-border bg-muted/20 p-4">

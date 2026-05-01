@@ -1,16 +1,16 @@
 import json
 
 from django.db import DatabaseError, OperationalError, ProgrammingError
-from django.http import JsonResponse
-from django.utils.decorators import method_decorator
-from django.views import View
-from django.views.decorators.csrf import csrf_exempt
 
 from Authentication.models import ClientProfile, FreelancerProfile
 from Projects.models import ProjectApplication
 
 from .models import Review
 from .services import ensure_reviews_schema, get_freelancer_review_stats
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 
 
 def _parse_json_body(request):
@@ -53,14 +53,13 @@ def serialize_review(review):
     }
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class ReviewListCreateView(View):
+class ReviewListCreateView(APIView):
     def get(self, request):
         try:
-            freelancer_id = request.GET.get("freelancer_id")
+            freelancer_id = request.query_params.get("freelancer_id")
             freelancer_profile = FreelancerProfile.objects.filter(user_id=freelancer_id).first()
             if not freelancer_profile:
-                return JsonResponse({"error": "Freelancer no encontrado"}, status=404)
+                return Response({"error": "Freelancer no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
             reviews = (
                 Review.objects.filter(freelancer=freelancer_profile)
@@ -68,12 +67,12 @@ class ReviewListCreateView(View):
                 .order_by("-created_at")
             )
             stats = get_freelancer_review_stats(freelancer_profile)
-            return JsonResponse(
+            return Response(
                 {
                     "reviews": [serialize_review(review) for review in reviews],
                     "summary": stats,
                 },
-                status=200,
+                status=status.HTTP_200_OK,
             )
         except (OperationalError, ProgrammingError):
             ensure_reviews_schema()
@@ -81,7 +80,7 @@ class ReviewListCreateView(View):
 
     def post(self, request):
         try:
-            data = _parse_json_body(request)
+            data = request.data
             client_id = _normalize_user_id(data.get("clientId"))
             project_id = _normalize_user_id(data.get("projectId"))
             rating = data.get("rating")
@@ -89,7 +88,7 @@ class ReviewListCreateView(View):
 
             client_profile = ClientProfile.objects.filter(user_id=client_id).first()
             if not client_profile:
-                return JsonResponse({"error": "Solo un cliente puede registrar una reseña"}, status=403)
+                return Response({"error": "Solo un cliente puede registrar una reseña"}, status=status.HTTP_403_FORBIDDEN)
 
             application = (
                 ProjectApplication.objects.select_related("project__client__user", "freelancer__user")
@@ -97,23 +96,23 @@ class ReviewListCreateView(View):
                 .first()
             )
             if not application:
-                return JsonResponse({"error": "El proyecto no tiene un freelancer asignado"}, status=400)
+                return Response({"error": "El proyecto no tiene un freelancer asignado"}, status=status.HTTP_400_BAD_REQUEST)
 
             project = application.project
             if project.client_id != client_profile.id:
-                return JsonResponse({"error": "Solo el cliente propietario puede reseñar este proyecto"}, status=403)
+                return Response({"error": "Solo el cliente propietario puede reseñar este proyecto"}, status=status.HTTP_403_FORBIDDEN)
             if project.status != "finalizado":
-                return JsonResponse({"error": "Solo puedes reseñar proyectos finalizados"}, status=400)
+                return Response({"error": "Solo puedes reseñar proyectos finalizados"}, status=status.HTTP_400_BAD_REQUEST)
             if Review.objects.filter(project=project).exists():
-                return JsonResponse({"error": "Este proyecto ya tiene una reseña registrada"}, status=400)
+                return Response({"error": "Este proyecto ya tiene una reseña registrada"}, status=status.HTTP_400_BAD_REQUEST)
 
             try:
                 normalized_rating = int(rating)
             except (TypeError, ValueError):
-                return JsonResponse({"error": "La calificacion debe ser un numero entero"}, status=400)
+                return Response({"error": "La calificacion debe ser un numero entero"}, status=status.HTTP_400_BAD_REQUEST)
 
             if normalized_rating < 1 or normalized_rating > 5:
-                return JsonResponse({"error": "La calificacion debe estar entre 1 y 5 estrellas"}, status=400)
+                return Response({"error": "La calificacion debe estar entre 1 y 5 estrellas"}, status=status.HTTP_400_BAD_REQUEST)
 
             review = Review.objects.create(
                 project=project,
@@ -123,20 +122,20 @@ class ReviewListCreateView(View):
                 comment=comment,
             )
             stats = get_freelancer_review_stats(application.freelancer)
-            return JsonResponse(
+            return Response(
                 {
                     "review": serialize_review(
                         Review.objects.select_related("project", "client__user", "freelancer__user").get(id=review.id)
                     ),
                     "summary": stats,
                 },
-                status=201,
+                status=status.HTTP_201_CREATED,
             )
         except (OperationalError, ProgrammingError):
             ensure_reviews_schema()
             return self.post(request)
         except DatabaseError:
-            return JsonResponse({"error": "No se pudo guardar la reseña en la base de datos"}, status=500)
+            return Response({"error": "No se pudo guardar la reseña en la base de datos"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as error:
             print("Error creating review:", error)
-            return JsonResponse({"error": "Error interno del servidor"}, status=500)
+            return Response({"error": "Error interno del servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

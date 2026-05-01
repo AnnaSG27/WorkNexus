@@ -26,7 +26,7 @@ class FreelancerProfile(models.Model):
         related_name="freelancer_profile"
     )
     bio = models.TextField()
-    age = models.PositiveIntegerField()
+    date_of_birth = models.DateField(null=True, blank=True)
     cv = models.FileField(upload_to="cvs/", blank=True, null=True)
 
     def __str__(self):

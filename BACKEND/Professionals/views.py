@@ -1,8 +1,6 @@
 from django.http import JsonResponse
 from django.db import OperationalError, ProgrammingError
-from django.utils.decorators import method_decorator
 from django.views import View
-from django.views.decorators.csrf import csrf_exempt
 
 from Authentication.models import FreelancerProfile
 from Projects.models import ProjectApplication
@@ -198,7 +196,6 @@ def _serialize_freelancer(profile):
     }
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class FreelancerListView(View):
     def get(self, request):
         try:

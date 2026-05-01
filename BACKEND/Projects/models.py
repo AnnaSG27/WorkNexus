@@ -1,7 +1,9 @@
 from django.db import models
 
 from Authentication.models import ClientProfile, FreelancerProfile
-
+from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 class Project(models.Model):
     CATEGORY_CHOICES = [
@@ -29,7 +31,7 @@ class Project(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default="otros")
-    budget = models.DecimalField(max_digits=10, decimal_places=2)
+    budget = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)])
     timeline = models.CharField(max_length=120, blank=True)
     location = models.CharField(max_length=120, blank=True)
     skills = models.CharField(max_length=255, blank=True)
@@ -42,6 +44,34 @@ class Project(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        
+    def clean(self):
+        if self.deadline and self.deadline < timezone.now().date():
+            raise ValidationError({
+                "deadline": "La fecha limite debe ser futura"
+            })
+        
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+        
+    def close_project(self):
+        if self.status != "finalizado":
+            raise ValueError("Solo se pueden cerrar proyectos finalizados")
+        self.status = "cerrado"
+        self.is_open = False
+        self.save(update_fields=["status", "is_open"])
+        
+    def accept_application(self, application):
+        if self.status != "abierto":
+            raise ValueError("El proyecto ya no está abierto")
+        application.status = "aceptada"
+        application.save()
+        
+        self.applications.exclude(id=application.id).update(status="rechazada")
+        self.status = "en_ejecucion"
+        self.is_open = False
+        self.save(update_fields=["status", "is_open"])
 
     def __str__(self):
         return f"{self.title} - {self.client.user.username}"

@@ -8,6 +8,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { API_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/apiClient";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -35,7 +36,7 @@ const PaymentForm = ({ clientSecret }: { clientSecret: string }) => {
       console.error("Error:", result.error.message);
     } else {
       console.log("Pago exitoso 🔥");
-      await fetch(`${API_URL}/payments/complete/`, {
+      await apiFetch(`${API_URL}/payments/complete/`, {
         method: "POST",     
         headers: {     
           "Content-Type": "application/json",     
@@ -74,7 +75,7 @@ const Checkout = () => {
   useEffect(() => {
     if (!orderId) return;
 
-    fetch(`${API_URL}/payments/create/`, {
+    apiFetch(`${API_URL}/payments/create/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label"
 import { Link, useNavigate } from "react-router-dom"
 import { useState } from "react"
 import { API_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/apiClient";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -13,7 +14,7 @@ export default function Login() {
 
   const handleLogin = async () => {
     try {
-      const response = await fetch(`${API_URL}/auth/login/`, {
+      const response = await apiFetch(`${API_URL}/auth/login/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

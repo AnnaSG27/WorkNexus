@@ -2,6 +2,36 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import ServiceCard from "./ServiceCard";
+import { API_URL } from "@/lib/api";
+
+function getCookie(name: string) {
+  let cookieValue: string | undefined = undefined;
+  if (document.cookie && document.cookie !== "") {
+    const cookies = document.cookie.split(";");
+    for (let cookie of cookies) {
+      cookie = cookie.trim();
+      if (cookie.startsWith(name + "=")) {
+        cookieValue = cookie.substring(name.length + 1);
+        break;
+      }
+    }
+  }
+  return cookieValue ?? undefined;
+}
+
+function apiFetch(url: string, options: RequestInit = {}) {
+  const csrfToken = getCookie("csrftoken");
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrfToken && { "X-CSRFToken": csrfToken }),
+      ...(options.headers || {}),
+    },
+    credentials: "include",
+  });
+}
 
 const ServiceCategory = () => {
   const { category } = useParams();
@@ -9,7 +39,9 @@ const ServiceCategory = () => {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    fetch(`http://localhost:8000/services/services/?category=${category}`)
+    apiFetch(`${API_URL}/services/services/?category=${category}`, {
+      method: "GET",
+    })
       .then(res => res.json())
       .then(data => setServices(data));
   }, [category]);

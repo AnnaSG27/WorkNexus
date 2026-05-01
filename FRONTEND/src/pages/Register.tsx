@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label"
 import { Link } from "react-router-dom"
 import { useState } from "react"
 import { API_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/apiClient";
 
 export default function Register() {
   const [nombre, setNombre] = useState("");
@@ -18,7 +19,7 @@ export default function Register() {
   const [userType, setUserType] = useState("");
   const [enterpriseName, setEnterpriseName] = useState("");
   const [bio, setBio] = useState("");
-  const [age, setAge] = useState("");
+  const [date_of_birth, setDate_of_birth] = useState(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,13 +36,13 @@ export default function Register() {
     }
 
     if (userType === "freelancer") {
-      if (!bio || !age) {
+      if (!bio || !date_of_birth) {
         alert("La descripción y la edad son obligatorias para freelancers");
         return;
       }
     }
 
-    const data = {
+    let data: any = {
       nombre,
       username,
       email,
@@ -51,13 +52,19 @@ export default function Register() {
       country,
       city,
       userType,
-      enterpriseName,
-      bio,
-      age
     };
 
+    if (userType === "cliente") {
+      data.enterpriseName = enterpriseName;
+    }
+
+    if (userType === "freelancer") {
+      data.bio = bio;
+      data.date_of_birth = date_of_birth || null;
+    }
+
     try {
-      const response = await fetch(`${API_URL}/auth/register/`, {
+      const response = await apiFetch(`${API_URL}/auth/register/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -70,10 +77,20 @@ export default function Register() {
       if (response.ok) {
         alert("Usuario registrado correctamente");
       } else {
-        alert("Error en registro: " + (result.error || "Error desconocido"));
+        // Mostrar errores del backend (DRF)
+        const messages = Object.values(result).flat().join(" ");
+        alert(messages);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al registrar:", error);
+
+      // En caso de que apiFetch ya lance el error con el body
+      if (error && typeof error === "object") {
+        const messages = Object.values(error).flat().join(" ");
+        alert(messages);
+      } else {
+        alert("Error inesperado");
+      }
     }
   };
 
@@ -239,13 +256,12 @@ export default function Register() {
 
             {userType === "freelancer" && (
               <div className="space-y-2">
-                <Label htmlFor="age">Edad</Label>
+                <Label htmlFor="date_of_birth">Edad</Label>
                 <Input
-                  id="age"
-                  type="number"
-                  placeholder="Ingresa tu edad"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
+                  id="date_of_birth"
+                  type="date"
+                  value={date_of_birth}
+                  onChange={(e) => setDate_of_birth(e.target.value)}
                 />
               </div>
             )}
