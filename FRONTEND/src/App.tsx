@@ -17,6 +17,7 @@ import Projects from "./pages/Projects";
 import Register from "./pages/Register";
 import SavedProfiles from "./pages/SavedProfiles";
 import Services from "./pages/Services";
+import Checkout from "./pages/Checkout";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="orders" element={<Orders />} />
             <Route path="messages" element={<Messages />} />
             <Route path="saved-profiles" element={<SavedProfiles />} />
+            <Route path="checkout/:orderId" element={<Checkout />} />
           </Route>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

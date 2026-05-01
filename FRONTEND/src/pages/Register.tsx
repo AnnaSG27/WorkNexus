@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Link } from "react-router-dom"
 import { useState } from "react"
+import { API_URL } from "@/lib/api";
 
 export default function Register() {
   const [nombre, setNombre] = useState("");
@@ -56,7 +57,7 @@ export default function Register() {
     };
 
     try {
-      const response = await fetch("http://localhost:8000/auth/register/", {
+      const response = await fetch(`${API_URL}/auth/register/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
