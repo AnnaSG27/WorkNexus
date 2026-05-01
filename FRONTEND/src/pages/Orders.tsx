@@ -117,6 +117,10 @@ const Orders = () => {
   const summary = ordersQuery.data?.summary;
   const orders = ordersQuery.data?.orders ?? [];
 
+  const handlePay = (orderId: number) => {
+    navigate(`/checkout/${orderId}`);
+  };
+
   return (
     <div className="bg-background pt-20">
       <section className="border-b border-border/60 bg-[radial-gradient(circle_at_top_left,_hsl(220_70%_45%_/_0.15),_transparent_35%),linear-gradient(180deg,hsl(210_20%_97%),hsl(210_20%_99%))] pb-16 pt-10">
@@ -187,21 +191,153 @@ const Orders = () => {
                     <Briefcase className="mr-2 h-4 w-4" />
                     Abrir chat
                   </Button>
-                  {statusOptions.map((option) => (
-                    <Button
-                      key={option.value}
-                      size="sm"
-                      variant={order.status === option.value ? "default" : "outline"}
-                      disabled={updateOrderMutation.isPending}
-                      onClick={() => updateOrderMutation.mutate({ orderId: order.id, status: option.value })}
-                    >
-                      {option.value === "sin_iniciar" && <ClipboardList className="mr-2 h-4 w-4" />}
-                      {option.value === "en_proceso" && <PlayCircle className="mr-2 h-4 w-4" />}
-                      {option.value === "terminado" && <CheckCircle2 className="mr-2 h-4 w-4" />}
-                      {option.value === "cancelado" && <XCircle className="mr-2 h-4 w-4" />}
-                      {option.label}
-                    </Button>
-                  ))}
+                  {(() => {
+                    // =========================
+                    // CLIENTE
+                    // =========================
+                    if (!isFreelancer) {
+                      if (order.status === "sin_iniciar") {
+                        return (
+                          <>
+                            <Button
+                              onClick={() => handlePay(order.id)}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              💳 Pagar
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                updateOrderMutation.mutate({
+                                  orderId: order.id,
+                                  status: "cancelado",
+                                })
+                              }
+                            >
+                              <XCircle className="mr-2 h-4 w-4" />
+                              Cancelar
+                            </Button>
+                          </>
+                        );
+                      }
+
+                      if (order.status === "en_proceso") {
+                        return (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled
+                            className="border-blue-500 text-blue-600 bg-blue-50 cursor-not-allowed"
+                          >
+                            <PlayCircle className="mr-2 h-4 w-4 text-blue-600" />
+                            En Proceso
+                          </Button>
+                        );
+                      }
+
+                      if (order.status === "terminado") {
+                        return (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled
+                              className="border-green-500 text-green-600 bg-green-50 cursor-not-allowed"
+                            >
+                              <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
+                              Terminado
+                            </Button>
+                            <Button size="sm" variant="outline">
+                              ✍️ Escribir reseña
+                            </Button>
+                          </>
+                        );
+                      }
+
+                      // en_proceso o cancelado → nada
+                      return null;
+                    }
+
+                    // =========================
+                    // FREELANCER
+                    // =========================
+                    if (isFreelancer) {
+                      if (order.status === "sin_iniciar") {
+                        return (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled
+                            >
+                              <XCircle className="mr-2 h-4 w-4" />
+                              En aprovación
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                updateOrderMutation.mutate({
+                                  orderId: order.id,
+                                  status: "cancelado",
+                                })
+                              }
+                            >
+                              <XCircle className="mr-2 h-4 w-4" />
+                              Cancelar
+                            </Button>
+                          </>
+                        );
+                      }
+
+                      if (order.status === "en_proceso") {
+                        return (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              updateOrderMutation.mutate({
+                                orderId: order.id,
+                                status: "terminado",
+                              })
+                            }
+                          >
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            Terminar
+                          </Button>
+                        );
+                      }
+
+                      if (order.status === "terminado") {
+                        return (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled
+                              className="border-green-500 text-green-600 bg-green-50 cursor-not-allowed"
+                            >
+                              <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
+                              Terminado
+                            </Button>
+                            {order.payment?.status === "released" && (
+                              <div className="inline-flex items-center px-2 py-1 rounded bg-green-100 text-green-700 text-xs">
+                                💰 Pago liberado
+                              </div>
+                            )}
+                          </>
+                        );
+                      }
+
+
+                      // terminado o cancelado → nada
+                      return null;
+                    }
+
+                    return null;
+                  })()}
                 </div>
               </CardContent>
             </Card>
