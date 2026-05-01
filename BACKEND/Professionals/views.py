@@ -198,7 +198,6 @@ def _serialize_freelancer(profile):
     }
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class FreelancerListView(View):
     def get(self, request):
         try:

@@ -96,7 +96,6 @@ def _forbidden(message):
     return JsonResponse({"error": message}, status=403)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class ConversationListView(View):
     def get(self, request):
         user = _get_user(request.GET.get("user_id"))
@@ -109,7 +108,6 @@ class ConversationListView(View):
         return JsonResponse({"conversations": payload, "totalUnread": total_unread}, status=200)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class ConversationStartView(View):
     def post(self, request):
         try:
@@ -135,7 +133,6 @@ class ConversationStartView(View):
         return JsonResponse({"conversation": _serialize_conversation(conversation, current_user)}, status=200)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class ConversationMessagesView(View):
     def get(self, request, conversation_id):
         user = _get_user(request.GET.get("user_id"))
@@ -171,7 +168,6 @@ class ConversationMessagesView(View):
         return JsonResponse({"message": _serialize_message(message, sender)}, status=201)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class ConversationReadView(View):
     def post(self, request, conversation_id):
         try:
@@ -190,7 +186,6 @@ class ConversationReadView(View):
         return JsonResponse({"updatedMessages": updated_messages}, status=200)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class MessagingDashboardView(View):
     def get(self, request):
         user = _get_user(request.GET.get("user_id"))

@@ -162,7 +162,6 @@ def _project_summary(projects, user_type):
     }
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class ProjectListCreateView(View):
     def _get_projects_response(self, request):
         freelancer_id = request.GET.get("freelancer_id")
@@ -292,7 +291,6 @@ class ProjectListCreateView(View):
             return JsonResponse({"error": "Error interno del servidor"}, status=500)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class ProjectDetailUpdateView(View):
     def patch(self, request, project_id):
         try:
@@ -355,7 +353,6 @@ class ProjectDetailUpdateView(View):
             return JsonResponse({"error": "Error interno del servidor"}, status=500)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class ProjectApplicationListView(View):
     def get(self, request):
         try:
@@ -390,7 +387,6 @@ class ProjectApplicationListView(View):
             return self.get(request)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class ApplyToProjectView(View):
     def _apply_to_project_response(self, request, project_id):
         data = _parse_json_body(request)
@@ -460,7 +456,6 @@ class ApplyToProjectView(View):
             return JsonResponse({"error": "Error interno del servidor"}, status=500)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class ProjectApplicationUpdateView(View):
     def patch(self, request, application_id):
         try:
@@ -534,7 +529,6 @@ class ProjectApplicationUpdateView(View):
             return JsonResponse({"error": "Error interno del servidor"}, status=500)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class ProjectFavoriteToggleView(View):
     def post(self, request, project_id):
         try:

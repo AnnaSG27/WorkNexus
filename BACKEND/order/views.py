@@ -140,7 +140,6 @@ def _build_summary(orders):
     }
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class OrderListCreateView(View):
     def _get_orders_response(self, request):
         user_id = request.GET.get("user_id")
@@ -233,7 +232,6 @@ class OrderListCreateView(View):
             return JsonResponse({"error": "Error interno del servidor"}, status=500)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class OrderDetailUpdateView(View):
     def _get_order(self, order_id):
         return _orders_queryset().filter(id=order_id).first()

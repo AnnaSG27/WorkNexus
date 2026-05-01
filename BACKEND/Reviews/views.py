@@ -53,7 +53,6 @@ def serialize_review(review):
     }
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class ReviewListCreateView(View):
     def get(self, request):
         try:

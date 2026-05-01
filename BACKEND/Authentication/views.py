@@ -35,7 +35,6 @@ def _serialize_user(user, user_type):
     return payload
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class RegisterView(View):
     def post(self, request):
         try:
@@ -94,7 +93,6 @@ class RegisterView(View):
             return JsonResponse({"error": "Error interno del servidor"}, status=500)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class LoginView(View):
     def post(self, request):
         try:
@@ -140,7 +138,6 @@ class LoginView(View):
             return JsonResponse({"error": "Error interno del servidor"}, status=500)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class EditProfileView(View):
     def put(self, request):
         try:
