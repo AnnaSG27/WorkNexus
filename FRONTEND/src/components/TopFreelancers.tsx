@@ -4,6 +4,36 @@
  * This component is responsible for displaying a list of freelancers.
  */
 import { useMemo, useState } from "react";
+import { API_URL } from "@/lib/api";
+
+function getCookie(name: string) {
+  let cookieValue: string | undefined = undefined;
+  if (document.cookie && document.cookie !== "") {
+    const cookies = document.cookie.split(";");
+    for (let cookie of cookies) {
+      cookie = cookie.trim();
+      if (cookie.startsWith(name + "=")) {
+        cookieValue = cookie.substring(name.length + 1);
+        break;
+      }
+    }
+  }
+  return cookieValue ?? undefined;
+}
+
+function apiFetch(url: string, options: RequestInit = {}) {
+  const csrfToken = getCookie("csrftoken");
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrfToken && { "X-CSRFToken": csrfToken }),
+      ...(options.headers || {}),
+    },
+    credentials: "include",
+  });
+}
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ArrowRight, Search, SlidersHorizontal } from "lucide-react";
@@ -19,7 +49,6 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { fetchConversations, getCurrentUserId, type ConversationSummary } from "@/lib/chat";
 
-const API_URL = "http://localhost:8000/professionals/freelancers/";
 const PAGE_SIZE = 8;
 
 // Mock data used as fallback when API fails or is loading
@@ -87,7 +116,9 @@ const TopFreelancers = () => {
   const { data, isLoading } = useQuery({
     queryKey: ["freelancers"],
     queryFn: async (): Promise<FreelancersResponse> => {
-      const response = await fetch(API_URL);
+      const response = await apiFetch(`${API_URL}/professionals/freelancers/`, {
+        method: "GET",
+      });
       if (!response.ok) throw new Error("No se pudieron cargar los profesionales");
       return response.json();
     },

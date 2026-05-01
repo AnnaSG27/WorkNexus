@@ -14,7 +14,10 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { fetchConversations, getCurrentUserId, type ConversationSummary } from "@/lib/chat";
 
-const API_URL = "http://localhost:8000/professionals/freelancers/";
+import { apiFetch } from "@/lib/apiClient";
+import { API_URL } from "@/lib/api";
+
+const BASE_URL = `${API_URL}/professionals/freelancers/`;
 const PAGE_SIZE = 8;
 
 interface FreelancersResponse {
@@ -60,7 +63,9 @@ const SavedProfiles = () => {
   const { data, isLoading } = useQuery({
     queryKey: ["saved-profiles", "freelancers"],
     queryFn: async (): Promise<FreelancersResponse> => {
-      const response = await fetch(API_URL);
+      const response = await apiFetch(BASE_URL, {
+        method: "GET",
+      });
       if (!response.ok) throw new Error("No se pudieron cargar los profesionales");
       return response.json();
     },

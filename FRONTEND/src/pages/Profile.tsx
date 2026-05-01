@@ -10,6 +10,7 @@ import { getStoredUser } from "@/components/professionals-session";
 import { fetchMyApplications, fetchProjects } from "@/lib/projects";
 import { fetchFreelancerReviews } from "@/lib/reviews";
 import { API_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/apiClient";
 
 const Profile = () => {
   const [user, setUser] = useState<any>(null);
@@ -49,7 +50,7 @@ const Profile = () => {
 
   const handleSave = async () => {
     try {
-      const response = await fetch(`${API_URL}/auth/editProfile/`, {
+      const response = await apiFetch(`${API_URL}/auth/editProfile/`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

@@ -1,4 +1,7 @@
-const PROJECTS_API_BASE = "http://localhost:8000/projects";
+import { API_URL } from "./api";
+import { apiFetch } from "@/lib/apiClient";
+
+const PROJECTS_API_BASE = `${API_URL}/projects`;
 
 export interface ProjectApplication {
   id: number;
@@ -138,12 +141,14 @@ export const fetchProjects = async (params?: ProjectFilters) => {
   if (params?.maxBudget) searchParams.set("max_budget", params.maxBudget);
 
   const query = searchParams.toString();
-  const response = await fetch(`${PROJECTS_API_BASE}/${query ? `?${query}` : ""}`);
+  const response = await apiFetch(`${PROJECTS_API_BASE}/${query ? `?${query}` : ""}`, {
+    method: "GET",
+  });
   return handleJsonResponse<ProjectListResponse>(response);
 };
 
 export const createProject = async (payload: CreateProjectPayload) => {
-  const response = await fetch(`${PROJECTS_API_BASE}/`, {
+  const response = await apiFetch(`${PROJECTS_API_BASE}/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -155,7 +160,7 @@ export const createProject = async (payload: CreateProjectPayload) => {
 };
 
 export const updateProjectStatus = async (projectId: number, userId: string | number, status: string) => {
-  const response = await fetch(`${PROJECTS_API_BASE}/${projectId}/`, {
+  const response = await apiFetch(`${PROJECTS_API_BASE}/${projectId}/`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -167,7 +172,7 @@ export const updateProjectStatus = async (projectId: number, userId: string | nu
 };
 
 export const deleteProject = async (projectId: number, userId: string | number) => {
-  const response = await fetch(`${PROJECTS_API_BASE}/${projectId}/`, {
+  const response = await apiFetch(`${PROJECTS_API_BASE}/${projectId}/`, {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",
@@ -179,7 +184,7 @@ export const deleteProject = async (projectId: number, userId: string | number) 
 };
 
 export const applyToProject = async (projectId: number, payload: ApplyToProjectPayload) => {
-  const response = await fetch(`${PROJECTS_API_BASE}/${projectId}/apply/`, {
+  const response = await apiFetch(`${PROJECTS_API_BASE}/${projectId}/apply/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -191,12 +196,14 @@ export const applyToProject = async (projectId: number, payload: ApplyToProjectP
 };
 
 export const fetchMyApplications = async (freelancerId: string | number) => {
-  const response = await fetch(`${PROJECTS_API_BASE}/applications/?freelancer_id=${freelancerId}`);
+  const response = await apiFetch(`${PROJECTS_API_BASE}/applications/?freelancer_id=${freelancerId}`, {
+    method: "GET",
+  });
   return handleJsonResponse<ApplicationsResponse>(response);
 };
 
 export const updateApplicationStatus = async (applicationId: number, userId: string | number, status: string) => {
-  const response = await fetch(`${PROJECTS_API_BASE}/applications/${applicationId}/`, {
+  const response = await apiFetch(`${PROJECTS_API_BASE}/applications/${applicationId}/`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -208,7 +215,7 @@ export const updateApplicationStatus = async (applicationId: number, userId: str
 };
 
 export const toggleProjectFavorite = async (projectId: number, freelancerId: string | number) => {
-  const response = await fetch(`${PROJECTS_API_BASE}/${projectId}/favorite/`, {
+  const response = await apiFetch(`${PROJECTS_API_BASE}/${projectId}/favorite/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

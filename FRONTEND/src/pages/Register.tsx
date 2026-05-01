@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label"
 import { Link } from "react-router-dom"
 import { useState } from "react"
 import { API_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/apiClient";
 
 export default function Register() {
   const [nombre, setNombre] = useState("");
@@ -57,7 +58,7 @@ export default function Register() {
     };
 
     try {
-      const response = await fetch(`${API_URL}/auth/register/`, {
+      const response = await apiFetch(`${API_URL}/auth/register/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

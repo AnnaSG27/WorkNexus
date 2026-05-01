@@ -1,6 +1,8 @@
 import { getStoredUser } from "@/components/professionals-session";
+import { API_URL } from "./api";
+import { apiFetch } from "@/lib/apiClient";
 
-const API_BASE_URL = "http://localhost:8000/messaging";
+const API_BASE_URL = `${API_URL}/messaging`;
 
 export interface ChatUserSummary {
   id: number;
@@ -56,12 +58,14 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
 }
 
 export async function fetchConversations(userId: number) {
-  const response = await fetch(`${API_BASE_URL}/conversations/?user_id=${userId}`);
+  const response = await apiFetch(`${API_BASE_URL}/conversations/?user_id=${userId}`, {
+    method: "GET",
+  });
   return parseJsonResponse<{ conversations: ConversationSummary[]; totalUnread: number }>(response);
 }
 
 export async function startConversation(currentUserId: number, otherUserId: number) {
-  const response = await fetch(`${API_BASE_URL}/conversations/start/`, {
+  const response = await apiFetch(`${API_BASE_URL}/conversations/start/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -73,12 +77,14 @@ export async function startConversation(currentUserId: number, otherUserId: numb
 }
 
 export async function fetchConversationMessages(conversationId: number, userId: number) {
-  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages/?user_id=${userId}`);
+  const response = await apiFetch(`${API_BASE_URL}/conversations/${conversationId}/messages/?user_id=${userId}`, {
+    method: "GET",
+  });
   return parseJsonResponse<{ conversation: ConversationSummary; messages: ChatMessage[] }>(response);
 }
 
 export async function sendMessage(conversationId: number, senderId: number, content: string) {
-  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages/`, {
+  const response = await apiFetch(`${API_BASE_URL}/conversations/${conversationId}/messages/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -90,6 +96,8 @@ export async function sendMessage(conversationId: number, senderId: number, cont
 }
 
 export async function fetchMessagingStats(userId: number) {
-  const response = await fetch(`${API_BASE_URL}/dashboard/?user_id=${userId}`);
+  const response = await apiFetch(`${API_BASE_URL}/dashboard/?user_id=${userId}`, {
+    method: "GET",
+  });
   return parseJsonResponse<{ stats: MessagingStats }>(response);
 }

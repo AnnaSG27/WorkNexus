@@ -64,13 +64,44 @@ const categories = [
   },
 ];
 
+function getCookie(name: string) {
+  let cookieValue: string | undefined = undefined;
+  if (document.cookie && document.cookie !== "") {
+    const cookies = document.cookie.split(";");
+    for (let cookie of cookies) {
+      cookie = cookie.trim();
+      if (cookie.startsWith(name + "=")) {
+        cookieValue = cookie.substring(name.length + 1);
+        break;
+      }
+    }
+  }
+  return cookieValue ?? undefined;
+}
+
+function apiFetch(url: string, options: RequestInit = {}) {
+  const csrfToken = getCookie("csrftoken");
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrfToken && { "X-CSRFToken": csrfToken }),
+      ...(options.headers || {}),
+    },
+    credentials: "include",
+  });
+}
+
 const CategorySection = () => {
   const navigate = useNavigate();
 
   const [counts, setCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    fetch(`${API_URL}/services/category-count/`)
+    apiFetch(`${API_URL}/services/category-count/`, {
+      method: "GET",
+    })
       .then(res => res.json())
       .then(data => {
         setCounts(data);
