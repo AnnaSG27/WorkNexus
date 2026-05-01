@@ -6,6 +6,7 @@ class Payment(models.Model):
         ("pending", "Pending"),
         ("paid", "Paid"),
         ("failed", "Failed"),
+        ("released", "Released"),
     ]
 
     order = models.OneToOneField(
@@ -16,7 +17,7 @@ class Payment(models.Model):
 
     amount = models.DecimalField(max_digits=10, decimal_places=2)
 
-    currency = models.CharField(max_length=10, default="usd")
+    currency = models.CharField(max_length=10, default="cop")
 
     stripe_payment_intent = models.CharField(max_length=255, null=True, blank=True)
     stripe_client_secret = models.CharField(max_length=255, null=True, blank=True)
