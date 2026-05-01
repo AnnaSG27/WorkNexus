@@ -172,11 +172,11 @@ const Profile = () => {
                     )}
                   </p>
                   <p>
-                    <strong>Edad:</strong>{" "}
+                    <strong>Fecha de Nacimiento:</strong>{" "}
                     {isEditing ? (
-                      <input type="number" className="rounded border p-1" value={formData.age || ""} onChange={(e) => handleChange("age", e.target.value)} />
+                      <input type="number" className="rounded border p-1" value={formData.date_of_birth || ""} onChange={(e) => handleChange("date_of_birth", e.target.value)} />
                     ) : (
-                      user.age || "No especificada"
+                      user.date_of_birth || "No especificada"
                     )}
                   </p>
                   <div className="mt-4 rounded-xl border border-border bg-muted/20 p-4">
