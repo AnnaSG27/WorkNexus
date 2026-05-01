@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "Messaging",
     "corsheaders",
     "payments",
+    "external",
 ]
 
 MIDDLEWARE = [

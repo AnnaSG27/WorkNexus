@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Heart, Menu, MessageSquare, User, X } from "lucide-react";
+import { fetchExchangeRate } from "@/lib/external";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,16 @@ const Navbar = () => {
     { name: "Proyectos", to: "/projects" },
     ...(user ? [{ name: workLabel, to: "/orders" }] : []),
   ];
+
+  const [rate, setRate] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetchExchangeRate().then(setRate)
+      const interval = setInterval(() => {
+        fetchExchangeRate().then(setRate);
+      }, 6000);
+      return () => clearInterval(interval)
+  }, []);
 
   return (
     <nav className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-background/80 shadow-sm backdrop-blur-xl">
@@ -104,6 +115,11 @@ const Navbar = () => {
 
             {user && (
               <>
+                {rate && (
+                  <span className="text-sm text-muted-foreground">
+                    💵 1 USD = {rate} COP
+                  </span>
+                )}
                 <Link to="/messages" className="relative">
                   <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
                     <MessageSquare className="h-5 w-5" />
