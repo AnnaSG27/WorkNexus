@@ -14,6 +14,7 @@ from Services.models import Service
 
 from .models import Order
 from .services import apply_order_status_transition, create_service_order, normalize_budget
+from payments.models import Payment
 
 
 def _parse_json_body(request):
@@ -50,6 +51,13 @@ def _serialize_order(order):
         "description": order.description,
         "sourceType": order.source_type,
         "status": order.status,
+        "payment": (
+            {
+                "status": Payment.objects.filter(order=order).first().status
+            }
+            if Payment.objects.filter(order=order).exists()
+            else None
+        ),
         "agreedBudget": float(order.agreed_budget) if order.agreed_budget is not None else None,
         "startedAt": order.started_at.isoformat() if order.started_at else None,
         "completedAt": order.completed_at.isoformat() if order.completed_at else None,
@@ -282,7 +290,25 @@ class OrderDetailUpdateView(View):
                 valid_statuses = {choice[0] for choice in Order.STATUS_CHOICES}
                 if new_status not in valid_statuses:
                     return JsonResponse({"error": "Estado de contratacion no valido"}, status=400)
+                
+                if new_status == "terminado":
+
+                    payment = Payment.objects.filter(order=order).first()
+
+                    if not payment or payment.status != "paid":
+                        return JsonResponse(
+                            {"error": "No se puede finalizar una orden sin haber sido pagada"},
+                            status=400
+                        )
+                
                 order = apply_order_status_transition(order, new_status)
+                
+                if new_status == "terminado":
+                    
+                    payment = Payment.objects.filter(order=order).first()
+                    if payment and payment.status == "paid":
+                        payment.status = "released"
+                        payment.save()
 
             order = self._get_order(order_id)
             return JsonResponse({"order": _serialize_order(order)}, status=200)
