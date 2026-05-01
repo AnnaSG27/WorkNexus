@@ -1,10 +1,6 @@
 import json
 
 from django.db import DatabaseError, OperationalError, ProgrammingError
-from django.http import JsonResponse
-from django.utils.decorators import method_decorator
-from django.views import View
-from django.views.decorators.csrf import csrf_exempt
 
 from Authentication.models import ClientProfile, FreelancerProfile
 from Projects.models import ProjectApplication

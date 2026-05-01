@@ -1,16 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import LoginSerializer
-from .serializers import RegisterSerializer
-import json
+from .serializers import LoginSerializer, RegisterSerializer
 
-from django.contrib.auth import authenticate
-from django.contrib.auth import login as django_login
-from django.http import JsonResponse
-from django.utils.decorators import method_decorator
-from django.views import View
-from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth import authenticate, get_user_model, login as django_login
+from .models import ClientProfile, FreelancerProfile
 
 
 def _build_display_name(user):
@@ -56,9 +50,6 @@ class RegisterView(APIView):
         bio = data.get("bio")
         age = data.get("age")
 
-        from django.contrib.auth import get_user_model
-        from .models import ClientProfile, FreelancerProfile
-
         User = get_user_model()
 
         username = serializer.validated_data.get("username")
@@ -98,7 +89,6 @@ class LoginView(APIView):
         identifier = serializer.validated_data.get("email")
         password = serializer.validated_data.get("password")
 
-        from django.contrib.auth import get_user_model
         User = get_user_model()
 
         user_obj = User.objects.filter(email=identifier).first() or User.objects.filter(username=identifier).first()

@@ -5,15 +5,12 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.db import DatabaseError, OperationalError, ProgrammingError
 from django.db.models import Q
-from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.utils.decorators import method_decorator
 from django.views import View
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.views.decorators.csrf import csrf_exempt
 
 from Authentication.models import ClientProfile, FreelancerProfile
 from Messaging.models import Conversation, Message
