@@ -11,7 +11,7 @@ export interface ProjectApplication {
   freelancerDisplayName: string;
   freelancerEmail: string;
   freelancerBio: string;
-  freelancerAge: number;
+  freelancerDate_of_birth: string;
   coverLetter: string;
   proposedBudget: number | null;
   status: string;

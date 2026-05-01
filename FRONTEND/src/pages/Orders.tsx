@@ -280,7 +280,7 @@ const Orders = () => {
                               disabled
                             >
                               <XCircle className="mr-2 h-4 w-4" />
-                              En aprovación
+                              En aprobación
                             </Button>
                             <Button
                               size="sm"

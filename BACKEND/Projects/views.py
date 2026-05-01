@@ -60,7 +60,7 @@ def _serialize_application(application, current_user_id=None):
         "freelancerDisplayName": _user_display_name(freelancer_user),
         "freelancerEmail": freelancer_user.email,
         "freelancerBio": application.freelancer.bio,
-        "freelancerAge": application.freelancer.age,
+        "freelancerDate_of_birth": application.freelancer.date_of_birth,
         "coverLetter": application.cover_letter,
         "proposedBudget": float(application.proposed_budget) if application.proposed_budget is not None else None,
         "status": application.status,
