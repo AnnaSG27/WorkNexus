@@ -23,6 +23,7 @@ const Navbar = () => {
   const canSaveFavorites = canUseClientFeatures(user);
   const { savedFreelancerIds } = useProfessionalFavorites(user, canSaveFavorites);
   const workLabel = user?.userType === "freelancer" ? "Mis trabajos" : "Mis proyectos";
+  const isFreelancer = user?.userType === "freelancer";
 
   const conversationsQuery = useQuery({
     queryKey: ["messaging", "conversations", user?.id],
@@ -35,7 +36,7 @@ const Navbar = () => {
 
   const navLinks = [
     { name: "Inicio", to: "/" },
-    { name: "Servicios", to: "/services" },
+    ...(!isFreelancer ? [{ name: "Servicios", to: "/services" }] : []),
     { name: "Proyectos", to: "/projects" },
     ...(user ? [{ name: workLabel, to: "/orders" }] : []),
   ];
@@ -65,7 +66,7 @@ const Navbar = () => {
                 {link.name}
               </Link>
             ))}
-            <DropdownMenu>
+            {!isFreelancer && (<DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
                   Profesionales
@@ -84,7 +85,7 @@ const Navbar = () => {
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu>)}
           </div>
 
           <div className="hidden items-center gap-3 md:flex">
