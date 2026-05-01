@@ -232,7 +232,10 @@ const Orders = () => {
             </DialogDescription>
           </DialogHeader>
 
+          {/* ✅ Contenedor del body del dialog */}
           <div className="space-y-6 px-6 py-6 md:px-7">
+
+            {/* Tarjeta: info del proyecto y freelancer */}
             <div className="grid gap-4 rounded-[24px] border border-border/70 bg-background/90 p-5 shadow-sm md:grid-cols-[1.2fr_0.8fr]">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Proyecto</p>
@@ -252,6 +255,7 @@ const Orders = () => {
               </div>
             </div>
 
+            {/* Tarjeta: selector de estrellas */}
             <div className="rounded-[24px] border border-border/70 bg-background p-5 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -263,28 +267,29 @@ const Orders = () => {
                   {reviewDraft.rating}.0 / 5
                 </div>
               </div>
-
               <div className="mt-5 flex flex-wrap gap-3">
-              {Array.from({ length: 5 }).map((_, index) => {
-                const selectedRating = index + 1;
-                const isActive = selectedRating <= reviewDraft.rating;
-                return (
-                  <button
-                    key={selectedRating}
-                    type="button"
-                    onClick={() => setReviewDraft((current) => ({ ...current, rating: selectedRating }))}
-                    className={`rounded-2xl border px-4 py-3 transition-all ${
-                      isActive
-                        ? "border-primary bg-primary/10 text-primary shadow-sm"
-                        : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-primary/5"
-                    }`}
-                  >
-                    <span className={isActive ? "opacity-100" : "opacity-40"}>★</span>
-                  </button>
-                );
-              })}
-            </div>
+                {Array.from({ length: 5 }).map((_, index) => {
+                  const selectedRating = index + 1;
+                  const isActive = selectedRating <= reviewDraft.rating;
+                  return (
+                    <button
+                      key={selectedRating}
+                      type="button"
+                      onClick={() => setReviewDraft((current) => ({ ...current, rating: selectedRating }))}
+                      className={`rounded-2xl border px-4 py-3 transition-all ${
+                        isActive
+                          ? "border-primary bg-primary/10 text-primary shadow-sm"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-primary/5"
+                      }`}
+                    >
+                      <span className={isActive ? "opacity-100" : "opacity-40"}>★</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div> {/* ✅ Cierra la tarjeta de estrellas */}
 
+            {/* Textarea fuera de la tarjeta de estrellas */}
             <Textarea
               value={reviewDraft.comment}
               onChange={(event) => setReviewDraft((current) => ({ ...current, comment: event.target.value }))}
@@ -293,8 +298,10 @@ const Orders = () => {
               rows={5}
               className="mt-5 resize-none border-border/70 bg-muted/20 focus-visible:ring-primary"
             />
-          </div>
 
+          </div> {/* ✅ Cierra el space-y-6 */}
+
+          {/* DialogFooter directamente en DialogContent, fuera del div con padding */}
           <DialogFooter className="border-t border-border/70 bg-background/90 px-6 py-5 md:px-7">
             <Button variant="outline" className="rounded-full" onClick={() => setReviewOrder(null)}>
               Después
@@ -307,6 +314,7 @@ const Orders = () => {
               Guardar reseña
             </Button>
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
     </div>
