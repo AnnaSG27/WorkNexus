@@ -249,7 +249,14 @@ const Orders = () => {
                               <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
                               Terminado
                             </Button>
-                            <Button size="sm" variant="outline">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                setReviewOrder(order);
+                                setReviewDraft({ rating: 5, comment: "" })
+                              }}
+                            >
                               ✍️ Escribir reseña
                             </Button>
                           </>
