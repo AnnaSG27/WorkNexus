@@ -9,6 +9,10 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+
 from .models import Conversation, Message
 
 
@@ -93,35 +97,32 @@ def _serialize_conversation(conversation, current_user):
 
 
 def _forbidden(message):
-    return JsonResponse({"error": message}, status=403)
+    return Response({"error": message}, status=status.HTTP_403_FORBIDDEN)
 
 
-class ConversationListView(View):
+class ConversationListView(APIView):
     def get(self, request):
-        user = _get_user(request.GET.get("user_id"))
+        user = _get_user(request.query_params.get("user_id"))
         if not user:
-            return JsonResponse({"error": "Usuario no encontrado"}, status=404)
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
         conversations = _conversation_queryset_for_user(user)
         payload = [_serialize_conversation(conversation, user) for conversation in conversations]
         total_unread = sum(item["unreadCount"] for item in payload)
-        return JsonResponse({"conversations": payload, "totalUnread": total_unread}, status=200)
+        return Response({"conversations": payload, "totalUnread": total_unread}, status=status.HTTP_200_OK)
 
 
-class ConversationStartView(View):
+class ConversationStartView(APIView):
     def post(self, request):
-        try:
-            data = _json_body(request)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "JSON invalido"}, status=400)
+        data = request.data
 
         current_user = _get_user(data.get("currentUserId"))
         other_user = _get_user(data.get("otherUserId"))
 
         if not current_user or not other_user:
-            return JsonResponse({"error": "Usuarios invalidos"}, status=404)
+            return Response({"error": "Usuarios invalidos"}, status=status.HTTP_404_NOT_FOUND)
         if current_user.id == other_user.id:
-            return JsonResponse({"error": "No puedes iniciar una conversacion contigo mismo"}, status=400)
+            return Response({"error": "No puedes iniciar una conversacion contigo mismo"}, status=status.HTTP_400_BAD_REQUEST)
         if not _can_users_message(current_user, other_user):
             return _forbidden("Solo se permiten conversaciones entre cliente y freelancer")
 
@@ -130,32 +131,29 @@ class ConversationStartView(View):
             participant_one=participant_one,
             participant_two=participant_two,
         )
-        return JsonResponse({"conversation": _serialize_conversation(conversation, current_user)}, status=200)
+        return Response({"conversation": _serialize_conversation(conversation, current_user)}, status=status.HTTP_200_OK)
 
 
-class ConversationMessagesView(View):
+class ConversationMessagesView(APIView):
     def get(self, request, conversation_id):
-        user = _get_user(request.GET.get("user_id"))
+        user = _get_user(request.query_params.get("user_id"))
         if not user:
-            return JsonResponse({"error": "Usuario no encontrado"}, status=404)
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
         conversation = get_object_or_404(_conversation_queryset_for_user(user), id=conversation_id)
         Message.objects.filter(conversation=conversation, read_at__isnull=True).exclude(sender=user).update(read_at=timezone.now())
         messages = [_serialize_message(message, user) for message in conversation.messages.select_related("sender").all()]
-        return JsonResponse({"conversation": _serialize_conversation(conversation, user), "messages": messages}, status=200)
+        return Response({"conversation": _serialize_conversation(conversation, user), "messages": messages}, status=status.HTTP_200_OK)
 
     def post(self, request, conversation_id):
-        try:
-            data = _json_body(request)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "JSON invalido"}, status=400)
+        data = request.data
 
         sender = _get_user(data.get("senderId"))
         content = (data.get("content") or "").strip()
         if not sender:
-            return JsonResponse({"error": "Usuario no encontrado"}, status=404)
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
         if not content:
-            return JsonResponse({"error": "El mensaje no puede estar vacio"}, status=400)
+            return Response({"error": "El mensaje no puede estar vacio"}, status=status.HTTP_400_BAD_REQUEST)
 
         conversation = get_object_or_404(_conversation_queryset_for_user(sender), id=conversation_id)
         other_user = conversation.other_participant(sender)
@@ -165,32 +163,29 @@ class ConversationMessagesView(View):
         message = Message.objects.create(conversation=conversation, sender=sender, content=content)
         conversation.updated_at = timezone.now()
         conversation.save(update_fields=["updated_at"])
-        return JsonResponse({"message": _serialize_message(message, sender)}, status=201)
+        return Response({"message": _serialize_message(message, sender)}, status=status.HTTP_201_CREATED)
 
 
-class ConversationReadView(View):
+class ConversationReadView(APIView):
     def post(self, request, conversation_id):
-        try:
-            data = _json_body(request)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "JSON invalido"}, status=400)
+        data = request.data
 
         user = _get_user(data.get("userId"))
         if not user:
-            return JsonResponse({"error": "Usuario no encontrado"}, status=404)
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
         conversation = get_object_or_404(_conversation_queryset_for_user(user), id=conversation_id)
         updated_messages = Message.objects.filter(conversation=conversation, read_at__isnull=True).exclude(sender=user).update(
             read_at=timezone.now()
         )
-        return JsonResponse({"updatedMessages": updated_messages}, status=200)
+        return Response({"updatedMessages": updated_messages}, status=status.HTTP_200_OK)
 
 
-class MessagingDashboardView(View):
+class MessagingDashboardView(APIView):
     def get(self, request):
-        user = _get_user(request.GET.get("user_id"))
+        user = _get_user(request.query_params.get("user_id"))
         if not user:
-            return JsonResponse({"error": "Usuario no encontrado"}, status=404)
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
         conversations = _conversation_queryset_for_user(user)
         conversation_count = conversations.count()
@@ -199,7 +194,7 @@ class MessagingDashboardView(View):
         unread_count = Message.objects.filter(conversation__in=conversations, read_at__isnull=True).exclude(sender=user).count()
         last_activity = conversations.aggregate(last_activity=Max("updated_at"))["last_activity"]
 
-        return JsonResponse(
+        return Response(
             {
                 "stats": {
                     "conversationCount": conversation_count,
@@ -210,5 +205,5 @@ class MessagingDashboardView(View):
                     "role": _user_role(user),
                 }
             },
-            status=200,
+            status=status.HTTP_200_OK,
         )

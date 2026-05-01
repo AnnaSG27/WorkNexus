@@ -6,6 +6,7 @@ from rest_framework import status
 
 from order.models import Order
 from .models import Payment
+from .serializers import CreatePaymentSerializer, ConfirmPaymentSerializer
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -14,8 +15,11 @@ class CreatePaymentIntentView(APIView):
     def post(self, request):
         try:
             
-            order_id = request.data.get("order_id")
+            serializer = CreatePaymentSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+            order_id = serializer.validated_data["order_id"]
             order = Order.objects.get(id=order_id)
             print("AGREED BUDGET:", order.agreed_budget)
             
@@ -30,7 +34,7 @@ class CreatePaymentIntentView(APIView):
                     })
 
                 # Otherwise, create the Stripe intent and update the existing payment
-                amount = int(float(order.agreed_budget))
+                amount = int(float(order.agreed_budget) * 100)
 
                 intent = stripe.PaymentIntent.create(
                     amount=amount,
@@ -49,7 +53,7 @@ class CreatePaymentIntentView(APIView):
                 })
 
             if not order.agreed_budget:
-                return Response({"error": "Order has no agreed budget"}, status=400)
+                return Response({"error": "Order has no agreed budget"}, status=status.HTTP_400_BAD_REQUEST)
 
             amount = int(float(order.agreed_budget) * 100)
 
@@ -77,18 +81,20 @@ class CreatePaymentIntentView(APIView):
             })
 
         except Order.DoesNotExist:
-            return Response({"error": "Order not found"}, status=404)
+            return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
 
         except Exception as e:
-            return Response({"error": str(e)}, status=500)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class ConfirmPaymentIntentView(APIView):
     def post(self, request):
         try:
-            payment_intent_id = request.data.get("payment_intent_id")
+            serializer = ConfirmPaymentSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            payment_intent_id = serializer.validated_data["payment_intent_id"]
             
-            if not payment_intent_id:
-                return Response({"error": "Payment intent ID is required"}, status=400)
             payment = Payment.objects.get(stripe_payment_intent=payment_intent_id)
             payment.status = "paid"
             payment.save()
@@ -97,6 +103,6 @@ class ConfirmPaymentIntentView(APIView):
             order.status = "en_proceso"
             order.save()
             
-            return Response({"message": "Payment completed successfully"}, status=200)
+            return Response({"message": "Payment completed successfully"}, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({"error": str(e)}, status=500)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

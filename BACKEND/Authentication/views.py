@@ -1,3 +1,8 @@
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .serializers import LoginSerializer
+from .serializers import RegisterSerializer
 import json
 
 from django.contrib.auth import authenticate
@@ -35,153 +40,135 @@ def _serialize_user(user, user_type):
     return payload
 
 
-class RegisterView(View):
+
+class RegisterView(APIView):
     def post(self, request):
-        try:
-            data = json.loads(request.body)
+        serializer = RegisterSerializer(data=request.data)
 
-            full_name = (data.get("nombre") or "").strip()
-            email = data.get("email")
-            password = data.get("password")
-            username = data.get("username") or email
-            country = data.get("country")
-            city = data.get("city")
-            user_type = data.get("userType")
-            enterprise_name = data.get("enterpriseName")
-            bio = data.get("bio")
-            age = data.get("age")
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            if not email or not password:
-                return JsonResponse({"error": "Email y contrasena son requeridos"}, status=400)
+        data = request.data
 
-            from django.contrib.auth import get_user_model
-            from .models import ClientProfile, FreelancerProfile
+        full_name = (data.get("nombre") or "").strip()
+        user_type = data.get("userType")
+        enterprise_name = data.get("enterpriseName")
+        bio = data.get("bio")
+        age = data.get("age")
 
-            User = get_user_model()
+        from django.contrib.auth import get_user_model
+        from .models import ClientProfile, FreelancerProfile
 
-            if User.objects.filter(username=username).exists():
-                return JsonResponse({"error": "El usuario ya existe"}, status=400)
+        User = get_user_model()
 
-            name_parts = full_name.split()
-            first_name = name_parts[0] if name_parts else ""
-            last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
+        username = serializer.validated_data.get("username")
+        if User.objects.filter(username=username).exists():
+            return Response({"error": "El usuario ya existe"}, status=status.HTTP_400_BAD_REQUEST)
 
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-                password=password,
-                first_name=first_name,
-                last_name=last_name,
-                country=country,
-                city=city,
-            )
+        name_parts = full_name.split()
+        first_name = name_parts[0] if name_parts else ""
+        last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
 
-            if user_type == "cliente":
-                ClientProfile.objects.create(user=user, enterprise_name=enterprise_name or "")
-            elif user_type == "freelancer":
-                FreelancerProfile.objects.create(user=user, bio=bio or "", age=int(age) if age else 0)
+        user = serializer.save(
+            first_name=first_name,
+            last_name=last_name
+        )
 
-            return JsonResponse(
-                {
-                    "message": "Usuario creado exitosamente",
-                    "user": _serialize_user(user, user_type),
-                },
-                status=201,
-            )
-        except Exception as e:
-            print("Error en register:", e)
-            return JsonResponse({"error": "Error interno del servidor"}, status=500)
+        if user_type == "cliente":
+            ClientProfile.objects.create(user=user, enterprise_name=enterprise_name or "")
+        elif user_type == "freelancer":
+            FreelancerProfile.objects.create(user=user, bio=bio or "", age=int(age) if age else 0)
+
+        return Response(
+            {
+                "message": "Usuario creado exitosamente",
+                "user": _serialize_user(user, user_type),
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
-class LoginView(View):
+class LoginView(APIView):
     def post(self, request):
-        try:
-            data = json.loads(request.body)
+        serializer = LoginSerializer(data=request.data)
 
-            identifier = data.get("email") or data.get("username")
-            password = data.get("password")
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            if not identifier or not password:
-                return JsonResponse({"error": "Email/username y contrasena son requeridos"}, status=400)
+        identifier = serializer.validated_data.get("email")
+        password = serializer.validated_data.get("password")
 
-            from django.contrib.auth import get_user_model
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
 
-            User = get_user_model()
-            user_obj = User.objects.filter(email=identifier).first() or User.objects.filter(username=identifier).first()
+        user_obj = User.objects.filter(email=identifier).first() or User.objects.filter(username=identifier).first()
 
-            if not user_obj:
-                return JsonResponse({"error": "Usuario no encontrado"}, status=404)
+        if not user_obj:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
-            user = authenticate(request, username=user_obj.username, password=password)
+        user = authenticate(request, username=user_obj.username, password=password)
 
-            if user is None:
-                return JsonResponse({"error": "Credenciales invalidas"}, status=401)
+        if user is None:
+            return Response({"error": "Credenciales invalidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
-            django_login(request, user)
+        django_login(request, user)
 
-            if hasattr(user, "client_profile"):
-                user_type = "cliente"
-            elif hasattr(user, "freelancer_profile"):
-                user_type = "freelancer"
-            else:
-                user_type = None
+        if hasattr(user, "client_profile"):
+            user_type = "cliente"
+        elif hasattr(user, "freelancer_profile"):
+            user_type = "freelancer"
+        else:
+            user_type = None
 
-            return JsonResponse(
-                {
-                    "message": "Login exitoso",
-                    "user": _serialize_user(user, user_type),
-                },
-                status=200,
-            )
-        except Exception as e:
-            print("Error en login:", e)
-            return JsonResponse({"error": "Error interno del servidor"}, status=500)
+        return Response(
+            {
+                "message": "Login exitoso",
+                "user": _serialize_user(user, user_type),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
-class EditProfileView(View):
+class EditProfileView(APIView):
     def put(self, request):
-        try:
-            data = json.loads(request.body)
-            user_id = data.get("id")
+        data = request.data
+        user_id = data.get("id")
 
-            if not user_id:
-                return JsonResponse({"error": "ID de usuario requerido"}, status=400)
+        if not user_id:
+            return Response({"error": "ID de usuario requerido"}, status=status.HTTP_400_BAD_REQUEST)
 
-            from django.contrib.auth import get_user_model
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
 
-            User = get_user_model()
-            user = User.objects.filter(id=user_id).first()
+        user = User.objects.filter(id=user_id).first()
 
-            if not user:
-                return JsonResponse({"error": "Usuario no encontrado"}, status=404)
+        if not user:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
-            user.username = data.get("username", user.username)
-            user.email = data.get("email", user.email)
-            user.first_name = data.get("firstName", user.first_name)
-            user.last_name = data.get("lastName", user.last_name)
-            user.country = data.get("country", user.country)
-            user.city = data.get("city", user.city)
-            user.save()
+        user.username = data.get("username", user.username)
+        user.email = data.get("email", user.email)
+        user.first_name = data.get("firstName", user.first_name)
+        user.last_name = data.get("lastName", user.last_name)
+        user.country = data.get("country", user.country)
+        user.city = data.get("city", user.city)
+        user.save()
 
-            user_type = data.get("userType")
+        user_type = data.get("userType")
 
-            if user_type == "cliente" and hasattr(user, "client_profile"):
-                profile = user.client_profile
-                profile.enterprise_name = data.get("enterpriseName", profile.enterprise_name)
-                profile.save()
-            elif user_type == "freelancer" and hasattr(user, "freelancer_profile"):
-                profile = user.freelancer_profile
-                profile.bio = data.get("bio", profile.bio)
-                profile.age = int(data.get("age", profile.age)) if data.get("age") else profile.age
-                profile.save()
+        if user_type == "cliente" and hasattr(user, "client_profile"):
+            profile = user.client_profile
+            profile.enterprise_name = data.get("enterpriseName", profile.enterprise_name)
+            profile.save()
+        elif user_type == "freelancer" and hasattr(user, "freelancer_profile"):
+            profile = user.freelancer_profile
+            profile.bio = data.get("bio", profile.bio)
+            profile.age = int(data.get("age", profile.age)) if data.get("age") else profile.age
+            profile.save()
 
-            return JsonResponse(
-                {
-                    "message": "Perfil actualizado correctamente",
-                    "user": _serialize_user(user, user_type),
-                },
-                status=200,
-            )
-        except Exception as e:
-            print("Error en editProfile:", e)
-            return JsonResponse({"error": "Error interno del servidor"}, status=500)
+        return Response(
+            {
+                "message": "Perfil actualizado correctamente",
+                "user": _serialize_user(user, user_type),
+            },
+            status=status.HTTP_200_OK,
+        )

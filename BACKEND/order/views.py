@@ -6,6 +6,9 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
 
 from Authentication.models import ClientProfile, FreelancerProfile
@@ -140,12 +143,12 @@ def _build_summary(orders):
     }
 
 
-class OrderListCreateView(View):
+class OrderListCreateView(APIView):
     def _get_orders_response(self, request):
-        user_id = request.GET.get("user_id")
-        role = request.GET.get("role")
-        status = request.GET.get("status")
-        source_type = request.GET.get("source_type")
+        user_id = request.query_params.get("user_id")
+        role = request.query_params.get("role")
+        status_param = request.query_params.get("status")
+        source_type = request.query_params.get("source_type")
 
         orders = _orders_queryset()
 
@@ -156,18 +159,18 @@ class OrderListCreateView(View):
         elif user_id:
             orders = orders.filter(Q(client__user_id=user_id) | Q(freelancer__user_id=user_id))
 
-        if status:
-            orders = orders.filter(status=status)
+        if status_param:
+            orders = orders.filter(status=status_param)
         if source_type:
             orders = orders.filter(source_type=source_type)
 
         orders = orders.order_by("-created_at").distinct()
-        return JsonResponse(
+        return Response(
             {
                 "orders": [_serialize_order(order) for order in orders],
                 "summary": _build_summary(orders),
             },
-            status=200,
+            status=status.HTTP_200_OK,
         )
 
     def get(self, request):
@@ -178,27 +181,27 @@ class OrderListCreateView(View):
             return self._get_orders_response(request)
 
     def _create_order_response(self, request):
-        data = _parse_json_body(request)
+        data = request.data
         client_id = _normalize_user_id(data.get("clientId"))
         service_id = data.get("serviceId")
         title = (data.get("title") or "").strip()
         description = (data.get("description") or "").strip()
-        status = data.get("status") or "sin_iniciar"
+        status_param = data.get("status") or "sin_iniciar"
 
         client_profile = ClientProfile.objects.filter(user_id=client_id).first()
         if not client_profile:
-            return JsonResponse({"error": "Solo los clientes pueden crear contrataciones"}, status=403)
+            return Response({"error": "Solo los clientes pueden crear contrataciones"}, status=status.HTTP_403_FORBIDDEN)
 
         service = Service.objects.select_related("freelancer__user").filter(id=service_id).first()
         if not service:
-            return JsonResponse({"error": "Servicio no encontrado"}, status=404)
+            return Response({"error": "Servicio no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
         if not title:
             title = service.title
 
         valid_statuses = {choice[0] for choice in Order.STATUS_CHOICES}
-        if status not in valid_statuses:
-            return JsonResponse({"error": "Estado de contratacion no valido"}, status=400)
+        if status_param not in valid_statuses:
+            return Response({"error": "Estado de contratacion no valido"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             agreed_budget = normalize_budget(data.get("agreedBudget"))
@@ -209,15 +212,15 @@ class OrderListCreateView(View):
                 description=description,
                 agreed_budget=agreed_budget,
             )
-            if status != "sin_iniciar":
-                order = apply_order_status_transition(order, status)
+            if status_param != "sin_iniciar":
+                order = apply_order_status_transition(order, status_param)
         except ValueError as error:
-            return JsonResponse({"error": str(error)}, status=400)
+            return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
         except IntegrityError as error:
-            return JsonResponse({"error": str(error)}, status=400)
+            return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
         order = _orders_queryset().get(id=order.id)
-        return JsonResponse({"order": _serialize_order(order)}, status=201)
+        return Response({"order": _serialize_order(order)}, status=status.HTTP_201_CREATED)
 
     def post(self, request):
         try:
@@ -232,7 +235,7 @@ class OrderListCreateView(View):
             return JsonResponse({"error": "Error interno del servidor"}, status=500)
 
 
-class OrderDetailUpdateView(View):
+class OrderDetailUpdateView(APIView):
     def _get_order(self, order_id):
         return _orders_queryset().filter(id=order_id).first()
 
@@ -240,15 +243,15 @@ class OrderDetailUpdateView(View):
         try:
             order = self._get_order(order_id)
             if not order:
-                return JsonResponse({"error": "Contratacion no encontrada"}, status=404)
-            return JsonResponse({"order": _serialize_order(order)}, status=200)
+                return Response({"error": "Contratacion no encontrada"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"order": _serialize_order(order)}, status=status.HTTP_200_OK)
         except (OperationalError, ProgrammingError):
             _ensure_order_schema()
             return self.get(request, order_id)
 
     def patch(self, request, order_id):
         try:
-            data = _parse_json_body(request)
+            data = request.data
             user_id = _normalize_user_id(data.get("userId"))
             new_status = data.get("status")
             description = data.get("description")
@@ -256,16 +259,16 @@ class OrderDetailUpdateView(View):
 
             order = self._get_order(order_id)
             if not order:
-                return JsonResponse({"error": "Contratacion no encontrada"}, status=404)
+                return Response({"error": "Contratacion no encontrada"}, status=status.HTTP_404_NOT_FOUND)
 
             if user_id not in {order.client.user_id, order.freelancer.user_id}:
-                return JsonResponse({"error": "No tienes permisos para actualizar esta contratacion"}, status=403)
+                return Response({"error": "No tienes permisos para actualizar esta contratacion"}, status=status.HTTP_403_FORBIDDEN)
 
             changed_fields = []
             if title is not None:
                 normalized_title = title.strip()
                 if not normalized_title:
-                    return JsonResponse({"error": "El titulo no puede estar vacio"}, status=400)
+                    return Response({"error": "El titulo no puede estar vacio"}, status=status.HTTP_400_BAD_REQUEST)
                 order.title = normalized_title
                 changed_fields.append("title")
 
@@ -278,7 +281,7 @@ class OrderDetailUpdateView(View):
                     order.agreed_budget = normalize_budget(data.get("agreedBudget"))
                     changed_fields.append("agreed_budget")
                 except ValueError as error:
-                    return JsonResponse({"error": str(error)}, status=400)
+                    return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
             if changed_fields:
                 changed_fields.append("updated_at")
@@ -287,32 +290,29 @@ class OrderDetailUpdateView(View):
             if new_status is not None:
                 valid_statuses = {choice[0] for choice in Order.STATUS_CHOICES}
                 if new_status not in valid_statuses:
-                    return JsonResponse({"error": "Estado de contratacion no valido"}, status=400)
+                    return Response({"error": "Estado de contratacion no valido"}, status=status.HTTP_400_BAD_REQUEST)
                 
                 if new_status == "terminado":
-
                     payment = Payment.objects.filter(order=order).first()
-
                     if not payment or payment.status != "paid":
-                        return JsonResponse(
+                        return Response(
                             {"error": "No se puede finalizar una orden sin haber sido pagada"},
-                            status=400
+                            status=status.HTTP_400_BAD_REQUEST
                         )
                 
                 order = apply_order_status_transition(order, new_status)
                 
                 if new_status == "terminado":
-                    
                     payment = Payment.objects.filter(order=order).first()
                     if payment and payment.status == "paid":
                         payment.status = "released"
                         payment.save()
 
             order = self._get_order(order_id)
-            return JsonResponse({"order": _serialize_order(order)}, status=200)
+            return Response({"order": _serialize_order(order)}, status=status.HTTP_200_OK)
         except (OperationalError, ProgrammingError):
             _ensure_order_schema()
             return self.patch(request, order_id)
         except Exception as error:
             print("Error updating order:", error)
-            return JsonResponse({"error": "Error interno del servidor"}, status=500)
+            return Response({"error": "Error interno del servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
