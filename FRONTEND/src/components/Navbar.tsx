@@ -44,6 +44,20 @@ const Navbar = () => {
 
   const [rate, setRate] = useState<number | null>(null);
 
+  const scrollToPageTop = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  };
+
+  const closeMenuAndScrollTop = () => {
+    setIsMenuOpen(false);
+    scrollToPageTop();
+  };
+
+  const navigateFromNavbar = (to: string) => {
+    scrollToPageTop();
+    navigate(to);
+  };
+
   useEffect(() => {
     fetchExchangeRate().then(setRate)
       const interval = setInterval(() => {
@@ -56,7 +70,7 @@ const Navbar = () => {
     <nav className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-background/80 shadow-sm backdrop-blur-xl">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
-          <Link to="/" className="group flex items-center gap-3">
+          <Link to="/" className="group flex items-center gap-3" onClick={scrollToPageTop}>
             <img
               src="/images/Logo_WorkNexus.png"
               alt="WorkNexus Logo"
@@ -73,6 +87,7 @@ const Navbar = () => {
                 key={link.name}
                 to={link.to}
                 className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                onClick={scrollToPageTop}
               >
                 {link.name}
               </Link>
@@ -85,9 +100,9 @@ const Navbar = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-64 rounded-2xl p-2">
-                <DropdownMenuItem onSelect={() => navigate("/freelancers")}>Explorar profesionales</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigateFromNavbar("/freelancers")}>Explorar profesionales</DropdownMenuItem>
                 {canSaveFavorites && (
-                  <DropdownMenuItem onSelect={() => navigate("/saved-profiles")} className="justify-between">
+                  <DropdownMenuItem onSelect={() => navigateFromNavbar("/saved-profiles")} className="justify-between">
                     <span className="flex items-center gap-2">
                       <Heart className="h-4 w-4 text-primary" />
                       Perfiles guardados
@@ -102,12 +117,12 @@ const Navbar = () => {
           <div className="hidden items-center gap-3 md:flex">
             {!user && (
               <>
-                <Link to="/login">
+                <Link to="/login" onClick={scrollToPageTop}>
                   <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
                     Iniciar sesion
                   </Button>
                 </Link>
-                <Link to="/register">
+                <Link to="/register" onClick={scrollToPageTop}>
                   <Button className="bg-primary text-primary-foreground hover:bg-primary/90">Registrarse</Button>
                 </Link>
               </>
@@ -120,7 +135,7 @@ const Navbar = () => {
                     💵 1 USD = {rate} COP
                   </span>
                 )}
-                <Link to="/messages" className="relative">
+                <Link to="/messages" className="relative" onClick={scrollToPageTop}>
                   <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
                     <MessageSquare className="h-5 w-5" />
                   </Button>
@@ -131,7 +146,7 @@ const Navbar = () => {
                   )}
                 </Link>
 
-                <Link to="/profile">
+                <Link to="/profile" onClick={scrollToPageTop}>
                   <Button variant="ghost" className="flex items-center gap-2">
                     <User className="h-4 w-4" />
                     Mi perfil
@@ -141,6 +156,7 @@ const Navbar = () => {
                 <Button
                   variant="ghost"
                   onClick={() => {
+                    scrollToPageTop();
                     localStorage.removeItem("user");
                     window.location.href = "/";
                   }}
@@ -171,7 +187,7 @@ const Navbar = () => {
                   key={link.name}
                   to={link.to}
                   className="block py-2 text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => setIsMenuOpen(false)}
+                  onClick={closeMenuAndScrollTop}
                 >
                   {link.name}
                 </Link>
@@ -179,7 +195,7 @@ const Navbar = () => {
               <Link
                 to="/freelancers"
                 className="block py-2 text-muted-foreground transition-colors hover:text-foreground"
-                onClick={() => setIsMenuOpen(false)}
+                onClick={closeMenuAndScrollTop}
               >
                 Profesionales
               </Link>
@@ -187,7 +203,7 @@ const Navbar = () => {
                 <Link
                   to="/saved-profiles"
                   className="block py-2 text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => setIsMenuOpen(false)}
+                  onClick={closeMenuAndScrollTop}
                 >
                   Perfiles guardados
                 </Link>
@@ -195,32 +211,32 @@ const Navbar = () => {
 
               {!user ? (
                 <div className="flex gap-2 border-t border-border pt-4">
-                  <Link to="/login" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/login" className="flex-1" onClick={closeMenuAndScrollTop}>
                     <Button variant="outline" className="w-full">
                       Iniciar sesion
                     </Button>
                   </Link>
-                  <Link to="/register" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/register" className="flex-1" onClick={closeMenuAndScrollTop}>
                     <Button className="w-full bg-primary text-primary-foreground">Registrarse</Button>
                   </Link>
                 </div>
               ) : (
                 <div className="space-y-2 border-t border-border pt-4">
-                  <Link to="/messages" className="block" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/messages" className="block" onClick={closeMenuAndScrollTop}>
                     <Button variant="outline" className="w-full justify-between">
                       Mensajes
                       {unreadCount > 0 && <Badge>{unreadCount}</Badge>}
                     </Button>
                   </Link>
                   {canSaveFavorites && (
-                    <Link to="/saved-profiles" className="block" onClick={() => setIsMenuOpen(false)}>
+                    <Link to="/saved-profiles" className="block" onClick={closeMenuAndScrollTop}>
                       <Button variant="outline" className="w-full justify-between">
                         Perfiles guardados
                         {savedFreelancerIds.length > 0 && <Badge>{savedFreelancerIds.length}</Badge>}
                       </Button>
                     </Link>
                   )}
-                  <Link to="/profile" className="block" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/profile" className="block" onClick={closeMenuAndScrollTop}>
                     <Button variant="outline" className="w-full">
                       Mi perfil
                     </Button>
@@ -229,6 +245,7 @@ const Navbar = () => {
                     variant="ghost"
                     className="w-full"
                     onClick={() => {
+                      scrollToPageTop();
                       localStorage.removeItem("user");
                       window.location.href = "/";
                     }}
