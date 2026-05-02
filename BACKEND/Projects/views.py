@@ -308,6 +308,12 @@ class ProjectDetailUpdateView(APIView):
             if new_status not in valid_statuses:
                 return Response({"error": "Estado de proyecto no valido"}, status=status.HTTP_400_BAD_REQUEST)
 
+            if project.status == "en_ejecucion" and new_status not in {"en_ejecucion", "finalizado"}:
+                return Response(
+                    {"error": "Un proyecto en ejecucion solo puede mantenerse en ejecucion o pasar a finalizado"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             if new_status == "finalizado":
                 accepted_application_exists = ProjectApplication.objects.filter(
                     project=project,
@@ -318,6 +324,23 @@ class ProjectDetailUpdateView(APIView):
                         {"error": "Debes aceptar un freelancer antes de finalizar y calificar el proyecto"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+
+            if new_status == "en_ejecucion":
+                accepted_application_exists = ProjectApplication.objects.filter(
+                    project=project,
+                    status="aceptada",
+                ).exists()
+                if not accepted_application_exists:
+                    return Response(
+                        {"error": "Debes aceptar un freelancer antes de pasar el proyecto a ejecucion"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            if project.status in {"finalizado", "cerrado"} and new_status not in {"finalizado", "cerrado"}:
+                return Response(
+                    {"error": "Un proyecto finalizado o cerrado no puede volver a estados activos"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             project.status = new_status
             project.is_open = new_status in {"abierto", "en_revision"}
@@ -343,6 +366,13 @@ class ProjectDetailUpdateView(APIView):
             if project.client.user_id != user_id:
                 return Response({"error": "Solo el cliente propietario puede eliminar el proyecto"}, status=status.HTTP_403_FORBIDDEN)
 
+            if project.status == "en_ejecucion":
+                return Response(
+                    {"error": "No puedes eliminar un proyecto que está en ejecucion"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            project.orders.all().delete()
             project.delete()
             return Response({"message": "Proyecto eliminado correctamente"}, status=status.HTTP_200_OK)
         except (OperationalError, ProgrammingError):
@@ -484,6 +514,27 @@ class ProjectApplicationUpdateView(APIView):
             else:
                 if not is_client_owner:
                     return Response({"error": "Solo el cliente puede actualizar esta postulacion"}, status=status.HTTP_403_FORBIDDEN)
+
+            if new_status == "aceptada":
+                if application.project.status not in {"abierto", "en_revision"}:
+                    return Response(
+                        {"error": "Solo puedes aceptar postulaciones de proyectos abiertos o en revision"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                accepted_application_exists = ProjectApplication.objects.filter(
+                    project=application.project,
+                    status="aceptada",
+                ).exclude(id=application.id).exists()
+                if accepted_application_exists:
+                    return Response(
+                        {"error": "Este proyecto ya tiene un freelancer aceptado"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            elif new_status in {"en_revision", "rechazada"} and application.project.status in {"en_ejecucion", "finalizado", "cerrado"}:
+                return Response(
+                    {"error": "No puedes modificar postulaciones cuando el proyecto ya está en ejecucion, finalizado o cerrado"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             application.status = new_status
             application.save(update_fields=["status"])
