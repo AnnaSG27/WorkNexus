@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -11,8 +11,15 @@ import { API_URL } from "@/lib/api";
 import { apiFetch } from "@/lib/apiClient";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+type PaymentMethod = "stripe" | "wallet";
 
-const PaymentForm = ({ clientSecret }: { clientSecret: string }) => {
+type PaymentFormProps = {
+  clientSecret: string;
+  onCancel: () => Promise<void>;
+  canceling: boolean;
+};
+
+const PaymentForm = ({ clientSecret, onCancel, canceling }: PaymentFormProps) => {
   const stripe = useStripe();
   const elements = useElements();
   const navigate = useNavigate();
@@ -35,13 +42,13 @@ const PaymentForm = ({ clientSecret }: { clientSecret: string }) => {
     if (result.error) {
       console.error("Error:", result.error.message);
     } else {
-      console.log("Pago exitoso 🔥");
       await apiFetch(`${API_URL}/payments/complete/`, {
         method: "POST",     
         headers: {     
           "Content-Type": "application/json",     
         },     
         body: JSON.stringify({      
+          method: "stripe",
           payment_intent_id: result.paymentIntent.id,     
         }),
       })
@@ -55,66 +62,170 @@ const PaymentForm = ({ clientSecret }: { clientSecret: string }) => {
     <form onSubmit={handleSubmit} className="mt-6 space-y-4 max-w-md">
       <CardElement className="p-4 border rounded-md" />
 
-      <button
-        type="submit"
-        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded w-full"
-      >
-        💳 Pagar ahora
-      </button>
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="submit"
+          className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+        >
+          Pagar ahora
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={canceling}
+          className="rounded border border-gray-300 bg-white px-4 py-2 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+        >
+          {canceling ? "Cancelando..." : "Cancelar"}
+        </button>
+      </div>
     </form>
   );
 };
 
 const Checkout = () => {
   const { orderId } = useParams();
-  console.log("ORDER ID:", orderId);
+  const navigate = useNavigate();
 
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("stripe");
   const [clientSecret, setClientSecret] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [paymentId, setPaymentId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
+  const selectPaymentMethod = (method: PaymentMethod) => {
+    setPaymentMethod(method);
+    setClientSecret("");
+    setPaymentId(null);
+    setError("");
+  };
+
+  const createPayment = async () => {
     if (!orderId) return;
 
-    apiFetch(`${API_URL}/payments/create/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ order_id: orderId }),
-    })
-      .then(async (res) => {
-        const data = await res.json();
-        console.log("RESPUESTA BACKEND:", data);
-        return data;
-      })
-      .then((data) => {
-        setClientSecret(data.client_secret);
-        setLoading(false);
-        console.log("Client Secret:", data.client_secret);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoading(false);
+    setLoading(true);
+    setError("");
+    setClientSecret("");
+    setPaymentId(null);
+
+    try {
+      const response = await apiFetch(`${API_URL}/payments/create/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ order_id: orderId, method: paymentMethod }),
       });
-  }, [orderId]);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudo crear el pago");
+      }
+
+      if (paymentMethod === "wallet") {
+        navigate(`/orders`);
+        return;
+      }
+
+      if (data.client_secret) {
+        setClientSecret(data.client_secret);
+        setPaymentId(data.payment_id);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo crear el pago";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelStripePayment = async () => {
+    if (!paymentId) return;
+
+    setCanceling(true);
+    setError("");
+
+    try {
+      const response = await apiFetch(`${API_URL}/payments/cancel/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ method: "stripe", payment_id: paymentId }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudo cancelar el pago");
+      }
+
+      setClientSecret("");
+      setPaymentId(null);
+      setPaymentMethod("stripe");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo cancelar el pago";
+      setError(message);
+    } finally {
+      setCanceling(false);
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 pt-28 pb-20 min-h-[80vh]">
       <h1 className="text-2xl font-bold">Checkout</h1>
       <p className="mt-2">Orden: {orderId}</p>
 
-      {loading && <p className="mt-4">Cargando pago...</p>}
+      <div className="mt-6 max-w-md space-y-4">
+        <label className="block text-sm font-medium text-gray-700">
+          Método de pago
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => selectPaymentMethod("stripe")}
+            className={`rounded-md border px-4 py-3 text-sm font-medium ${
+              paymentMethod === "stripe"
+                ? "border-green-600 bg-green-50 text-green-700"
+                : "border-gray-200 bg-white text-gray-700"
+            }`}
+          >
+            Stripe
+          </button>
+          <button
+            type="button"
+            onClick={() => selectPaymentMethod("wallet")}
+            className={`rounded-md border px-4 py-3 text-sm font-medium ${
+              paymentMethod === "wallet"
+                ? "border-green-600 bg-green-50 text-green-700"
+                : "border-gray-200 bg-white text-gray-700"
+            }`}
+          >
+            Billetera
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={createPayment}
+          disabled={loading}
+          className="w-full rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+        >
+          {loading ? "Procesando..." : "Continuar"}
+        </button>
+      </div>
 
       {!loading && clientSecret && (
         <Elements stripe={stripePromise} options={{ clientSecret }}>
-          <PaymentForm clientSecret={clientSecret} />
+          <PaymentForm
+            clientSecret={clientSecret}
+            onCancel={cancelStripePayment}
+            canceling={canceling}
+          />
         </Elements>
       )}
 
-      {!loading && !clientSecret && (
-        <p className="mt-4 text-red-600">
-          Error al crear el pago ❌
-        </p>
+      {error && (
+        <p className="mt-4 text-red-600">{error}</p>
       )}
     </div>
   );
