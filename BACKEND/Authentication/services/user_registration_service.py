@@ -42,7 +42,9 @@ class UserRegistrationService:
         if user_type == "cliente":
             ClientProfile.objects.create(
                 user=user,
-                enterprise_name=enterprise_name or ""
+                enterprise_name=enterprise_name or "",
+                bank_name=raw_data.get("bankName", ""),
+                bank_account_number=raw_data.get("bankAccountNumber", "")
             )
 
         elif user_type == "freelancer":
