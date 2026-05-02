@@ -1,87 +1,65 @@
-import stripe
-from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
 from order.models import Order
-from .models import Payment
-from .serializers import CreatePaymentSerializer, ConfirmPaymentSerializer
-
-stripe.api_key = settings.STRIPE_SECRET_KEY
+from .models import Payment, WalletTopUp
+from .processors import PaymentProcessingError, get_payment_processor
+from .serializers import (
+    CancelPaymentSerializer,
+    CancelWalletTopUpSerializer,
+    ConfirmWalletTopUpSerializer,
+    CreatePaymentSerializer,
+    CreateWalletTopUpSerializer,
+    ConfirmPaymentSerializer,
+)
+from .wallet_topup_service import WalletTopUpError, WalletTopUpService
 
 
 class CreatePaymentIntentView(APIView):
     def post(self, request):
         try:
-            
             serializer = CreatePaymentSerializer(data=request.data)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             order_id = serializer.validated_data["order_id"]
+            payment_method = serializer.validated_data["method"]
             order = Order.objects.get(id=order_id)
-            print("AGREED BUDGET:", order.agreed_budget)
-            
-            existing_payment = Payment.objects.filter(order=order).first()
-
-            # If a payment already exists, reuse or complete it
-            if existing_payment:
-                # If it already has a client_secret, return it
-                if existing_payment.stripe_client_secret:
-                    return Response({
-                        "client_secret": existing_payment.stripe_client_secret
-                    })
-
-                # Otherwise, create the Stripe intent and update the existing payment
-                amount = int(float(order.agreed_budget) * 100)
-
-                intent = stripe.PaymentIntent.create(
-                    amount=amount,
-                    currency="cop",
-                    metadata={
-                        "order_id": order.id
-                    }
-                )
-
-                existing_payment.stripe_payment_intent = intent.id
-                existing_payment.stripe_client_secret = intent.client_secret
-                existing_payment.save()
-
-                return Response({
-                    "client_secret": intent.client_secret
-                })
 
             if not order.agreed_budget:
                 return Response({"error": "Order has no agreed budget"}, status=status.HTTP_400_BAD_REQUEST)
 
-            amount = int(float(order.agreed_budget) * 100)
+            existing_payment = Payment.objects.filter(order=order).first()
 
-            payment = Payment.objects.create(
-                order=order,
-                amount=order.agreed_budget,
-                status="pending"
-            )
+            if existing_payment and existing_payment.status != "failed":
+                if existing_payment.method != payment_method:
+                    return Response(
+                        {"error": "This order already has a payment with another method"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                payment = existing_payment
+            elif existing_payment and existing_payment.status == "failed":
+                existing_payment.status = "pending"
+                existing_payment.method = payment_method
+                existing_payment.save()
+                payment = existing_payment
+            else:
+                payment = Payment.objects.create(
+                    order=order,
+                    amount=order.agreed_budget,
+                    method=payment_method,
+                    status="pending",
+                )
 
-            intent = stripe.PaymentIntent.create(
-                amount=amount,
-                currency="cop",
-                metadata={
-                    "order_id": order.id
-                }
-            )
-
-            payment.stripe_payment_intent = intent.id
-            payment.stripe_client_secret = intent.client_secret
-            payment.save()
-
-            
-            return Response({
-                "client_secret": intent.client_secret
-            })
+            processor = get_payment_processor(payment_method)
+            return Response(processor.create_payment(order, payment))
 
         except Order.DoesNotExist:
             return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        except PaymentProcessingError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -93,16 +71,107 @@ class ConfirmPaymentIntentView(APIView):
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            payment_intent_id = serializer.validated_data["payment_intent_id"]
-            
-            payment = Payment.objects.get(stripe_payment_intent=payment_intent_id)
-            payment.status = "paid"
-            payment.save()
-            
-            order = payment.order
-            order.status = "en_proceso"
-            order.save()
-            
-            return Response({"message": "Payment completed successfully"}, status=status.HTTP_200_OK)
+            payment_method = serializer.validated_data["method"]
+            payment_identifier = (
+                serializer.validated_data.get("payment_intent_id")
+                if payment_method == "stripe"
+                else serializer.validated_data.get("payment_id")
+            )
+
+            processor = get_payment_processor(payment_method)
+            return Response(processor.confirm_payment(payment_identifier), status=status.HTTP_200_OK)
+
+        except Payment.DoesNotExist:
+            return Response({"error": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        except PaymentProcessingError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CancelPaymentIntentView(APIView):
+    def post(self, request):
+        try:
+            serializer = CancelPaymentSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            payment_method = serializer.validated_data["method"]
+            payment_id = serializer.validated_data["payment_id"]
+
+            processor = get_payment_processor(payment_method)
+            return Response(processor.cancel_payment(payment_id), status=status.HTTP_200_OK)
+
+        except Payment.DoesNotExist:
+            return Response({"error": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        except PaymentProcessingError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CreateWalletTopUpView(APIView):
+    def post(self, request):
+        try:
+            serializer = CreateWalletTopUpSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            service = WalletTopUpService()
+            return Response(
+                service.create_topup(
+                    user_id=serializer.validated_data["user_id"],
+                    amount=serializer.validated_data["amount"],
+                ),
+                status=status.HTTP_201_CREATED,
+            )
+
+        except WalletTopUpError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ConfirmWalletTopUpView(APIView):
+    def post(self, request):
+        try:
+            serializer = ConfirmWalletTopUpSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            service = WalletTopUpService()
+            return Response(
+                service.confirm_topup(payment_intent_id=serializer.validated_data["payment_intent_id"]),
+                status=status.HTTP_200_OK,
+            )
+
+        except WalletTopUp.DoesNotExist:
+            return Response({"error": "Wallet top-up not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CancelWalletTopUpView(APIView):
+    def post(self, request):
+        try:
+            serializer = CancelWalletTopUpSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            service = WalletTopUpService()
+            return Response(
+                service.cancel_topup(topup_id=serializer.validated_data["topup_id"]),
+                status=status.HTTP_200_OK,
+            )
+
+        except WalletTopUp.DoesNotExist:
+            return Response({"error": "Wallet top-up not found"}, status=status.HTTP_404_NOT_FOUND)
+
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

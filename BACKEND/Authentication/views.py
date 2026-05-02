@@ -28,6 +28,9 @@ def _serialize_user(user, user_type):
 
     if user_type == "cliente" and ClientProfile.objects.filter(user=user).exists():
         payload["enterpriseName"] = user.client_profile.enterprise_name
+        payload["walletBalance"] = str(user.client_profile.wallet_balance)
+        payload["bankName"] = user.client_profile.bank_name
+        payload["bankAccountNumber"] = user.client_profile.bank_account_number
     elif user_type == "freelancer" and FreelancerProfile.objects.filter(user=user).exists():
         payload["bio"] = user.freelancer_profile.bio
         payload["date_of_birth"] = user.freelancer_profile.date_of_birth
@@ -138,6 +141,8 @@ class EditProfileView(APIView):
         if user_type == "cliente" and ClientProfile.objects.filter(user=user).exists():
             profile = user.client_profile
             profile.enterprise_name = data.get("enterpriseName", profile.enterprise_name)
+            profile.bank_name = data.get("bankName", profile.bank_name)
+            profile.bank_account_number = data.get("bankAccountNumber", profile.bank_account_number)
             profile.save()
         elif user_type == "freelancer" and FreelancerProfile.objects.filter(user=user).exists():
             profile = user.freelancer_profile
