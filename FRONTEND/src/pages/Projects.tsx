@@ -40,6 +40,7 @@ import {
   updateProjectStatus,
   type CreateProjectPayload,
   type Project,
+  type ProjectListResponse,
 } from "@/lib/projects";
 import { createReview } from "@/lib/reviews";
 
@@ -106,6 +107,37 @@ const getStatusBadgeClass = (status: string) => {
   if (status === "rechazada" || status === "cerrado" || status === "retirada") return "bg-destructive text-destructive-foreground";
   if (status === "en_ejecucion" || status === "en_revision") return "bg-accent text-accent-foreground";
   return "bg-primary text-primary-foreground";
+};
+
+const getProjectStatusDescription = (project: Project) => {
+  if (project.status === "abierto") return "Recibiendo postulaciones de freelancers.";
+  if (project.status === "en_revision") return "Revisando postulaciones antes de elegir talento.";
+  if (project.status === "en_ejecucion") {
+    return project.assignedFreelancer
+      ? `En trabajo con ${project.assignedFreelancer.displayName}.`
+      : "En ejecucion con un freelancer asignado.";
+  }
+  if (project.status === "finalizado") {
+    return project.review ? "Trabajo terminado y reseñado." : "Trabajo terminado, pendiente de reseña o cierre.";
+  }
+  if (project.status === "cerrado") return "Proyecto archivado. Ya no recibe postulaciones ni cambios activos.";
+  return "Estado actual del proyecto.";
+};
+
+const getClientProjectStatusOptions = (project: Project) => {
+  if (project.status === "cerrado") {
+    return clientProjectStatusOptions.filter((option) => option.value === "cerrado");
+  }
+
+  if (project.status === "finalizado") {
+    return clientProjectStatusOptions.filter((option) => ["finalizado", "cerrado"].includes(option.value));
+  }
+
+  const hasAcceptedFreelancer = Boolean(project.assignedFreelancer);
+  return clientProjectStatusOptions.filter((option) => {
+    if (option.value === "en_ejecucion" || option.value === "finalizado") return hasAcceptedFreelancer;
+    return option.value !== "cerrado" || project.status !== "en_ejecucion";
+  });
 };
 
 const scoreProjectForFreelancer = (project: Project, bio?: string) => {
@@ -175,6 +207,7 @@ const Projects = () => {
   const invalidateAllProjectQueries = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["projects"] }),
+      queryClient.invalidateQueries({ queryKey: ["orders"] }),
       queryClient.invalidateQueries({ queryKey: ["messaging"] }),
     ]);
   };
@@ -236,7 +269,30 @@ const Projects = () => {
 
   const deleteProjectMutation = useMutation({
     mutationFn: (projectId: number) => deleteProject(projectId, user?.id ?? ""),
-    onSuccess: async () => {
+    onSuccess: async (_, deletedProjectId) => {
+      queryClient.setQueriesData<ProjectListResponse>({ queryKey: ["projects"] }, (current) => {
+        if (!current) return current;
+
+        const projects = current.projects.filter((project) => project.id !== deletedProjectId);
+        const favorites = current.favorites.filter((project) => project.id !== deletedProjectId);
+
+        return {
+          ...current,
+          projects,
+          favorites,
+          summary: {
+            ...current.summary,
+            projectCount: Math.max(0, current.summary.projectCount - 1),
+            openCount: Math.max(0, current.summary.openCount - Number(current.projects.some((project) => project.id === deletedProjectId && project.status === "abierto"))),
+            inProgressCount: Math.max(0, current.summary.inProgressCount - Number(current.projects.some((project) => project.id === deletedProjectId && project.status === "en_ejecucion"))),
+            completedCount: Math.max(0, current.summary.completedCount - Number(current.projects.some((project) => project.id === deletedProjectId && project.status === "finalizado"))),
+            applicationsCount:
+              current.summary.applicationsCount === undefined || current.summary.applicationsCount === null
+                ? current.summary.applicationsCount
+                : Math.max(0, current.summary.applicationsCount - (current.projects.find((project) => project.id === deletedProjectId)?.applicationsCount ?? 0)),
+          },
+        };
+      });
       await invalidateAllProjectQueries();
       toast({ title: "Proyecto eliminado", description: "La publicación se eliminó correctamente." });
     },
@@ -291,7 +347,7 @@ const Projects = () => {
   });
 
   const projects = projectsQuery.data?.projects ?? [];
-  const visibleClientProjects = isClient ? projects.filter((project) => project.status !== "cerrado") : projects;
+  const visibleClientProjects = projects;
   const favoriteProjects = favoritesQuery.data?.projects ?? [];
   const myApplications = applicationsQuery.data?.applications ?? [];
 
@@ -329,6 +385,7 @@ const Projects = () => {
   }, [pendingReviewProjectId, projects]);
 
   const handleClientProjectStatusChange = (project: Project, status: string) => {
+    if (status === project.status) return;
     if (status === "finalizado") {
       setPendingReviewProjectId(project.id);
     }
@@ -436,6 +493,9 @@ const Projects = () => {
             <Badge variant="secondary">{project.category}</Badge>
             <Badge className="bg-primary/90">{formatCopCurrency(project.budget)}</Badge>
             <Badge className={getStatusBadgeClass(project.status)}>{statusLabelMap[project.status] ?? project.status}</Badge>
+            {!project.isOpen && project.status !== "abierto" && (
+              <Badge variant="outline">No recibe postulaciones</Badge>
+            )}
             <Badge variant="outline">{project.modality}</Badge>
           </div>
         </div>
@@ -468,15 +528,16 @@ const Projects = () => {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-foreground">Gestion del proyecto</p>
-                <p className="text-sm text-muted-foreground">Actualiza el estado y revisa a quienes aplicaron.</p>
+                <p className="text-sm text-muted-foreground">{getProjectStatusDescription(project)}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <select
                   value={project.status}
-                  onChange={(event) => projectStatusMutation.mutate({ projectId: project.id, status: event.target.value })}
+                  onChange={(event) => handleClientProjectStatusChange(project, event.target.value)}
+                  disabled={projectStatusMutation.isPending || project.status === "cerrado"}
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 >
-                  {clientProjectStatusOptions.map((option) => (
+                  {getClientProjectStatusOptions(project).map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -485,17 +546,25 @@ const Projects = () => {
                 <Button
                   size="sm"
                   variant="destructive"
+                  disabled={project.status === "en_ejecucion" || deleteProjectMutation.isPending}
                   onClick={() => {
+                    if (project.status === "en_ejecucion") return;
                     const confirmed = window.confirm(`¿Seguro que quieres eliminar el proyecto "${project.title}"?`);
                     if (!confirmed) return;
                     deleteProjectMutation.mutate(project.id);
                   }}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Eliminar
+                  {project.status === "en_ejecucion" ? "No eliminable" : "Eliminar"}
                 </Button>
               </div>
             </div>
+
+            {project.status === "en_ejecucion" && (
+              <div className="rounded-xl border border-accent/40 bg-accent/10 p-3 text-sm text-accent-foreground">
+                Este proyecto está en ejecución. Puedes finalizarlo cuando el trabajo termine, pero no eliminarlo.
+              </div>
+            )}
 
             <Separator />
 
@@ -525,15 +594,27 @@ const Projects = () => {
                       </div>
 
                       <div className="mt-4 flex flex-wrap gap-2">
-                        <Button size="sm" variant="outline" onClick={() => applicationStatusMutation.mutate({ applicationId: application.id, status: "en_revision" })}>
-                          Marcar en revision
-                        </Button>
-                        <Button size="sm" onClick={() => applicationStatusMutation.mutate({ applicationId: application.id, status: "aceptada" })}>
-                          Aceptar y abrir chat
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => applicationStatusMutation.mutate({ applicationId: application.id, status: "rechazada" })}>
-                          Rechazar
-                        </Button>
+                        {project.status === "abierto" || project.status === "en_revision" ? (
+                          <>
+                            {application.status === "pendiente" && (
+                              <Button size="sm" variant="outline" onClick={() => applicationStatusMutation.mutate({ applicationId: application.id, status: "en_revision" })}>
+                                Marcar en revision
+                              </Button>
+                            )}
+                            {application.status !== "aceptada" && application.status !== "rechazada" && application.status !== "retirada" && (
+                              <Button size="sm" onClick={() => applicationStatusMutation.mutate({ applicationId: application.id, status: "aceptada" })}>
+                                Aceptar y abrir chat
+                              </Button>
+                            )}
+                            {application.status !== "aceptada" && application.status !== "rechazada" && application.status !== "retirada" && (
+                              <Button size="sm" variant="destructive" onClick={() => applicationStatusMutation.mutate({ applicationId: application.id, status: "rechazada" })}>
+                                Rechazar
+                              </Button>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Las postulaciones ya no se pueden cambiar en este estado.</p>
+                        )}
                         <Button size="sm" variant="ghost" onClick={() => navigate(`/messages?contact=${application.freelancerId}`)}>
                           Mensaje directo
                         </Button>
@@ -715,7 +796,7 @@ const Projects = () => {
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-foreground">{projectsQuery.data?.summary.openCount ?? 0}</p>
-                  <p className="text-sm text-muted-foreground">Activos</p>
+                  <p className="text-sm text-muted-foreground">Abiertos</p>
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-foreground">
@@ -957,7 +1038,7 @@ const Projects = () => {
             <DialogTitle>Califica al freelancer</DialogTitle>
             <DialogDescription>
               {reviewProject?.assignedFreelancer
-                ? `Deja una reseña para ${reviewProject.assignedFreelancer.displayName}. Al guardarla, este proyecto se archivará y saldrá de Mis proyectos.`
+                ? `Deja una reseña para ${reviewProject.assignedFreelancer.displayName}. Al guardarla, este proyecto quedará cerrado.`
                 : "Deja una reseña del trabajo realizado."}
             </DialogDescription>
           </DialogHeader>
@@ -1023,7 +1104,7 @@ const Projects = () => {
               }
               disabled={reviewMutation.isPending || !reviewProject}
             >
-              Guardar reseña y archivar
+              Guardar reseña y cerrar
             </Button>
           </DialogFooter>
         </DialogContent>
