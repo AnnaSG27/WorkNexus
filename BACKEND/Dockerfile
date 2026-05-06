@@ -11,8 +11,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Note: this will work once you have a Django project here (manage.py, etc.)
 COPY . .
 
-RUN chmod +x entrypoint.sh
-
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 EXPOSE 8000
-
-ENTRYPOINT ["./entrypoint.sh"]
