@@ -18,6 +18,7 @@ import { fetchMyApplications, fetchProjects } from "@/lib/projects";
 import { fetchFreelancerReviews } from "@/lib/reviews";
 import { API_URL } from "@/lib/api";
 import { apiFetch } from "@/lib/apiClient";
+import { formatCopCurrency, formatCopInput, parseCopInput } from "@/lib/utils";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -364,7 +365,7 @@ const Profile = () => {
                   <div className="rounded-lg border bg-muted/20 p-4">
                     <p className="text-sm text-muted-foreground">Saldo actual</p>
                     <p className="text-2xl font-bold">
-                      ${Number(user.walletBalance ?? 0).toLocaleString("es-CO")}
+                      {formatCopCurrency(user.walletBalance)}
                     </p>
                   </div>
 
@@ -457,11 +458,12 @@ const Profile = () => {
                     <div className="space-y-3">
                       <label className="block text-sm font-medium">Monto a ingresar</label>
                       <input
-                        type="number"
-                        min="1000"
+                        type="text"
+                        inputMode="numeric"
                         className="w-full rounded border p-2"
-                        value={topUpAmount}
-                        onChange={(event) => setTopUpAmount(event.target.value)}
+                        value={formatCopInput(topUpAmount)}
+                        onChange={(event) => setTopUpAmount(parseCopInput(event.target.value))}
+                        placeholder="50.000"
                       />
                       <Button onClick={startWalletTopUp} disabled={topUpLoading}>
                         {topUpLoading ? "Creando recarga..." : "Añadir plata"}
