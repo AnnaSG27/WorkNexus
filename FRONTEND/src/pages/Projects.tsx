@@ -43,6 +43,7 @@ import {
   type ProjectListResponse,
 } from "@/lib/projects";
 import { createReview } from "@/lib/reviews";
+import { formatCopCurrency, formatCopInput, parseCopInput } from "@/lib/utils";
 
 const categoryOptions = [
   { value: "all", label: "Todas las categorias" },
@@ -90,13 +91,6 @@ const initialForm: CreateProjectPayload = {
   modality: "remoto",
   deadline: "",
 };
-
-const formatCopCurrency = (value: number) =>
-  new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(value);
 
 const statusLabelMap = Object.fromEntries(
   [...clientProjectStatusOptions, ...applicationStatusOptions].map((item) => [item.value, item.label]),
@@ -729,18 +723,21 @@ const Projects = () => {
               </Button>
             </div>
             <Input
-              value={proposedBudgets[project.id] ?? ""}
+              value={formatCopInput(proposedBudgets[project.id] ?? "")}
               onChange={(event) =>
                 setProposedBudgets((current) => ({
                   ...current,
-                  [project.id]: event.target.value,
+                  [project.id]: parseCopInput(event.target.value),
                 }))
               }
-              type="number"
-              min="0"
-              placeholder="Propuesta economica en COP"
+              type="text"
+              inputMode="numeric"
+              placeholder="50.000"
               disabled={project.hasApplied}
             />
+            <p className="text-xs text-muted-foreground">
+              {proposedBudgets[project.id] ? `Propuesta: ${formatCopCurrency(proposedBudgets[project.id])}` : "Propuesta economica en COP"}
+            </p>
             <Textarea
               id={`cover-letter-${project.id}`}
               value={coverLetters[project.id] ?? ""}
@@ -843,7 +840,14 @@ const Projects = () => {
                     </div>
                     <div className="space-y-2">
                       <Label>Presupuesto (COP)</Label>
-                      <Input type="number" min="0" value={formState.budget} onChange={(event) => setFormState((current) => ({ ...current, budget: event.target.value }))} placeholder="1500000" required />
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        value={formatCopInput(formState.budget)}
+                        onChange={(event) => setFormState((current) => ({ ...current, budget: parseCopInput(event.target.value) }))}
+                        placeholder="1.500.000"
+                        required
+                      />
                     </div>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -928,7 +932,14 @@ const Projects = () => {
                   </div>
                   <div>
                     <Label>Presupuesto max</Label>
-                    <Input className="mt-2" type="number" value={filters.maxBudget} onChange={(event) => setFilters((current) => ({ ...current, maxBudget: event.target.value }))} placeholder="3000000" />
+                    <Input
+                      className="mt-2"
+                      type="text"
+                      inputMode="numeric"
+                      value={formatCopInput(filters.maxBudget)}
+                      onChange={(event) => setFilters((current) => ({ ...current, maxBudget: parseCopInput(event.target.value) }))}
+                      placeholder="3.000.000"
+                    />
                   </div>
                 </CardContent>
               </Card>

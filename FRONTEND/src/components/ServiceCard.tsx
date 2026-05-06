@@ -1,6 +1,7 @@
 import { Star, Heart, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { formatCopCurrency } from "@/lib/utils";
 
 interface ServiceCardProps {
   image: string;
@@ -83,7 +84,7 @@ const ServiceCard = ({
         <div className="flex items-center justify-between pt-4 border-t border-border">
           <div>
             <span className="text-xs text-muted-foreground">Desde</span>
-            <p className="text-xl font-bold text-foreground">${price}</p>
+            <p className="text-xl font-bold text-foreground">{formatCopCurrency(price)}</p>
           </div>
           <Button size="sm" variant="outline" className="hover:bg-primary hover:text-primary-foreground transition-colors">
             Ver más

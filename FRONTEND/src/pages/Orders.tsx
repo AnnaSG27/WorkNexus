@@ -12,6 +12,7 @@ import { getStoredUser } from "@/components/professionals-session";
 import { toast } from "@/hooks/use-toast";
 import { fetchOrders, updateOrder, type Order } from "@/lib/orders";
 import { createReview } from "@/lib/reviews";
+import { formatCopCurrency } from "@/lib/utils";
 
 const statusOptions = [
   { value: "sin_iniciar", label: "Sin iniciar" },
@@ -183,7 +184,7 @@ const Orders = () => {
                 <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                   {order.service && <span>Servicio: {order.service.title}</span>}
                   {order.project && <span>Proyecto: {order.project.title}</span>}
-                  {order.agreedBudget !== null && <span>Presupuesto acordado: ${order.agreedBudget}</span>}
+                  {order.agreedBudget !== null && <span>Presupuesto acordado: {formatCopCurrency(order.agreedBudget)}</span>}
                 </div>
 
                 <div className="flex flex-wrap gap-2">
