@@ -15,7 +15,7 @@ class ClientProfile(models.Model):
         related_name="client_profile"
     )
     enterprise_name = models.CharField(max_length=255)
-    wallet_balance = models.DecimalField(max_digits=12, decimal_places=2, default=2000000)
+    wallet_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     bank_name = models.CharField(max_length=120, blank=True)
     bank_account_number = models.CharField(max_length=80, blank=True)
     
