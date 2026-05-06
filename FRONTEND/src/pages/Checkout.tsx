@@ -7,6 +7,7 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
+import { getStoredUser } from "@/components/professionals-session";
 import { API_URL } from "@/lib/api";
 import { apiFetch } from "@/lib/apiClient";
 
@@ -93,6 +94,19 @@ const Checkout = () => {
   const [canceling, setCanceling] = useState(false);
   const [error, setError] = useState("");
 
+  const syncWalletBalance = (walletBalance: string) => {
+    const storedUser = getStoredUser();
+    if (!storedUser) return;
+
+    localStorage.setItem(
+      "user",
+      JSON.stringify({
+        ...storedUser,
+        walletBalance,
+      }),
+    );
+  };
+
   const selectPaymentMethod = (method: PaymentMethod) => {
     setPaymentMethod(method);
     setClientSecret("");
@@ -123,6 +137,9 @@ const Checkout = () => {
       }
 
       if (paymentMethod === "wallet") {
+        if (data.wallet_balance) {
+          syncWalletBalance(data.wallet_balance);
+        }
         navigate(`/orders`);
         return;
       }
