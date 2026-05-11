@@ -118,22 +118,6 @@ const getProjectStatusDescription = (project: Project) => {
   return "Estado actual del proyecto.";
 };
 
-const getClientProjectStatusOptions = (project: Project) => {
-  if (project.status === "cerrado") {
-    return clientProjectStatusOptions.filter((option) => option.value === "cerrado");
-  }
-
-  if (project.status === "finalizado") {
-    return clientProjectStatusOptions.filter((option) => ["finalizado", "cerrado"].includes(option.value));
-  }
-
-  const hasAcceptedFreelancer = Boolean(project.assignedFreelancer);
-  return clientProjectStatusOptions.filter((option) => {
-    if (option.value === "en_ejecucion" || option.value === "finalizado") return hasAcceptedFreelancer;
-    return option.value !== "cerrado" || project.status !== "en_ejecucion";
-  });
-};
-
 const scoreProjectForFreelancer = (project: Project, bio?: string) => {
   const bioText = (bio || "").toLowerCase();
   const projectText = `${project.category} ${project.skills.join(" ")}`.toLowerCase();
@@ -208,7 +192,7 @@ const Projects = () => {
 
   const createMutation = useMutation({
     mutationFn: () => createProject({ ...formState, clientId: user?.id ?? "" }),
-    onSuccess: async (data, variables) => {
+    onSuccess: async () => {
       setFormState({ ...initialForm, clientId: "" });
       await invalidateAllProjectQueries();
       toast({ title: "Proyecto publicado", description: "Ya puedes empezar a recibir postulaciones." });
@@ -250,9 +234,9 @@ const Projects = () => {
     },
   });
 
-  const projectStatusMutation = useMutation({
+  const projectStatusMutationDisabled = false && useMutation({
     mutationFn: ({ projectId, status }: { projectId: number; status: string }) => updateProjectStatus(projectId, user?.id ?? "", status),
-    onSuccess: async (data, variables) => {
+    onSuccess: async () => {
       await invalidateAllProjectQueries();
       toast({ title: "Proyecto actualizado", description: "El estado del proyecto se guardó correctamente." });
     },
@@ -260,6 +244,7 @@ const Projects = () => {
       toast({ title: "No se pudo actualizar el proyecto", description: error.message, variant: "destructive" });
     },
   });
+  void projectStatusMutationDisabled;
 
   const deleteProjectMutation = useMutation({
     mutationFn: (projectId: number) => deleteProject(projectId, user?.id ?? ""),
@@ -379,11 +364,8 @@ const Projects = () => {
   }, [pendingReviewProjectId, projects]);
 
   const handleClientProjectStatusChange = (project: Project, status: string) => {
-    if (status === project.status) return;
-    if (status === "finalizado") {
-      setPendingReviewProjectId(project.id);
-    }
-    projectStatusMutation.mutate({ projectId: project.id, status });
+    void project;
+    void status;
   };
 
   if (!user) {
@@ -424,10 +406,10 @@ const Projects = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {[
-                    ["Clientes publican proyectos", "Definen alcance, presupuesto y tiempos esperados.", <Briefcase className="h-5 w-5" key="a" />, "text-primary bg-primary/10"],
-                    ["Freelancers exploran oportunidades", "La plataforma muestra proyectos abiertos para aplicar facilmente.", <Target className="h-5 w-5" key="b" />, "text-secondary bg-secondary/10"],
-                    ["Las aplicaciones llegan al cliente", "Cada publicacion permite recibir candidatos directamente.", <Users className="h-5 w-5" key="c" />, "text-accent bg-accent/10"],
-                  ].map(([title, description, icon, palette]) => (
+                    { title: "Clientes publican proyectos", description: "Definen alcance, presupuesto y tiempos esperados.", icon: <Briefcase className="h-5 w-5" />, palette: "text-primary bg-primary/10" },
+                    { title: "Freelancers exploran oportunidades", description: "La plataforma muestra proyectos abiertos para aplicar facilmente.", icon: <Target className="h-5 w-5" />, palette: "text-secondary bg-secondary/10" },
+                    { title: "Las aplicaciones llegan al cliente", description: "Cada publicacion permite recibir candidatos directamente.", icon: <Users className="h-5 w-5" />, palette: "text-accent bg-accent/10" },
+                  ].map(({ title, description, icon, palette }) => (
                     <div key={title} className="rounded-2xl border border-border/70 bg-muted/20 p-4">
                       <div className="flex items-center gap-3">
                         <div className={`rounded-xl p-2 ${palette}`}>{icon}</div>
@@ -525,18 +507,14 @@ const Projects = () => {
                 <p className="text-sm text-muted-foreground">{getProjectStatusDescription(project)}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <select
-                  value={project.status}
-                  onChange={(event) => handleClientProjectStatusChange(project, event.target.value)}
-                  disabled={projectStatusMutation.isPending || project.status === "cerrado"}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  {getClientProjectStatusOptions(project).map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                <Badge className={getStatusBadgeClass(project.status)}>
+                  {statusLabelMap[project.status] ?? project.status}
+                </Badge>
+                {project.assignedFreelancer && (
+                  <Button size="sm" variant="outline" onClick={() => navigate("/orders")}>
+                    Ver en Mis proyectos
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="destructive"
@@ -639,8 +617,8 @@ const Projects = () => {
                     <p className="text-sm font-medium text-foreground">Reseña del freelancer</p>
                     <p className="text-sm text-muted-foreground">
                       {project.review
-                        ? `Ya calificaste a ${project.assignedFreelancer.displayName} en este proyecto.`
-                        : `Califica a ${project.assignedFreelancer.displayName} para actualizar su perfil.`}
+                        ? `Ya calificaste a ${project.assignedFreelancer!.displayName} en este proyecto.`
+                        : `Califica a ${project.assignedFreelancer!.displayName} para actualizar su perfil.`}
                     </p>
                   </div>
 
@@ -655,7 +633,7 @@ const Projects = () => {
                         ))}
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {project.review.comment || "El cliente no dejó comentario adicional."}
+                        {project.review!.comment || "El cliente no dejó comentario adicional."}
                       </p>
                     </div>
                   ) : (
