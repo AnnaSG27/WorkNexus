@@ -1,4 +1,7 @@
-const REVIEWS_API_BASE = "http://localhost:8000/reviews";
+import { API_URL } from "./api";
+import { apiFetch } from "@/lib/apiClient";
+
+const REVIEWS_API_BASE = `${API_URL}/reviews`;
 
 export interface Review {
   id: number;
@@ -48,12 +51,14 @@ const handleJsonResponse = async <T>(response: Response): Promise<T> => {
 };
 
 export const fetchFreelancerReviews = async (freelancerId: string | number) => {
-  const response = await fetch(`${REVIEWS_API_BASE}/?freelancer_id=${freelancerId}`);
+  const response = await apiFetch(`${REVIEWS_API_BASE}/?freelancer_id=${freelancerId}`, {
+    method: "GET",
+  });
   return handleJsonResponse<ReviewsResponse>(response);
 };
 
 export const createReview = async (payload: CreateReviewPayload) => {
-  const response = await fetch(`${REVIEWS_API_BASE}/`, {
+  const response = await apiFetch(`${REVIEWS_API_BASE}/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

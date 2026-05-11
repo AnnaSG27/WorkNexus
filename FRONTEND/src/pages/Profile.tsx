@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Star } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+  Elements,
+  PaymentElement,
+  useElements,
+  useStripe,
+} from "@stripe/react-stripe-js";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -9,17 +16,110 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { getStoredUser } from "@/components/professionals-session";
 import { fetchMyApplications, fetchProjects } from "@/lib/projects";
 import { fetchFreelancerReviews } from "@/lib/reviews";
+import { API_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/apiClient";
+import { formatCopCurrency, formatCopInput, parseCopInput } from "@/lib/utils";
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+
+type WalletTopUpFormProps = {
+  clientSecret: string;
+  onCompleted: (walletBalance: string) => void;
+  onCancel: () => Promise<void>;
+};
+
+const WalletTopUpForm = ({ clientSecret, onCompleted, onCancel }: WalletTopUpFormProps) => {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const confirmTopUp = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!stripe || !elements) return;
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const result = await stripe.confirmPayment({
+        elements,
+        redirect: "if_required",
+      });
+
+      if (result.error) {
+        throw new Error(result.error.message || "No se pudo confirmar la recarga");
+      }
+
+      if (!result.paymentIntent) {
+        throw new Error("Stripe no retorno la confirmacion del pago");
+      }
+
+      const response = await apiFetch(`${API_URL}/payments/wallet/topups/complete/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ payment_intent_id: result.paymentIntent.id }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudo actualizar la billetera");
+      }
+
+      if (!data.completed) {
+        throw new Error(data.message || "La recarga todavia no ha sido completada por Stripe");
+      }
+
+      onCompleted(data.wallet_balance);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo confirmar la recarga";
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={confirmTopUp} className="space-y-3">
+      <PaymentElement className="rounded border p-3" />
+      <div className="grid grid-cols-2 gap-3">
+        <Button type="submit" disabled={submitting || !stripe}>
+          {submitting ? "Confirmando..." : "Confirmar recarga"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
+          Cancelar
+        </Button>
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+    </form>
+  );
+};
 
 const Profile = () => {
   const [user, setUser] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<any>({});
+  const [topUpAmount, setTopUpAmount] = useState("50000");
+  const [topUpId, setTopUpId] = useState<number | null>(null);
+  const [topUpClientSecret, setTopUpClientSecret] = useState("");
+  const [topUpLoading, setTopUpLoading] = useState(false);
+  const [topUpError, setTopUpError] = useState("");
+  const [bankForm, setBankForm] = useState({ bankName: "", bankAccountNumber: "" });
+  const [isEditingBankData, setIsEditingBankData] = useState(false);
+  const [bankSaving, setBankSaving] = useState(false);
+  const [bankMessage, setBankMessage] = useState("");
 
   useEffect(() => {
     const storedUser = getStoredUser();
     if (!storedUser) return;
     setUser(storedUser);
     setFormData(storedUser);
+    setBankForm({
+      bankName: storedUser.bankName || "",
+      bankAccountNumber: storedUser.bankAccountNumber || "",
+    });
   }, []);
 
   const historyQuery = useQuery({
@@ -46,9 +146,15 @@ const Profile = () => {
     }));
   };
 
+  const syncStoredUser = (updatedUser: any) => {
+    setUser(updatedUser);
+    setFormData(updatedUser);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+  };
+
   const handleSave = async () => {
     try {
-      const response = await fetch("http://localhost:8000/auth/editProfile/", {
+      const response = await apiFetch(`${API_URL}/auth/editProfile/`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -59,8 +165,7 @@ const Profile = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setUser(data.user);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        syncStoredUser(data.user);
         setIsEditing(false);
         alert("Perfil actualizado correctamente");
       } else {
@@ -69,6 +174,104 @@ const Profile = () => {
     } catch (error) {
       console.error("Error:", error);
       alert("Error de conexion con el servidor");
+    }
+  };
+
+  const startWalletTopUp = async () => {
+    if (!user?.id) return;
+
+    setTopUpLoading(true);
+    setTopUpError("");
+    setTopUpClientSecret("");
+    setTopUpId(null);
+
+    try {
+      const response = await apiFetch(`${API_URL}/payments/wallet/topups/create/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ user_id: user.id, amount: topUpAmount }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudo crear la recarga");
+      }
+
+      setTopUpId(data.topup_id);
+      setTopUpClientSecret(data.client_secret);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo crear la recarga";
+      setTopUpError(message);
+    } finally {
+      setTopUpLoading(false);
+    }
+  };
+
+  const cancelWalletTopUp = async () => {
+    if (!topUpId) return;
+
+    try {
+      await apiFetch(`${API_URL}/payments/wallet/topups/cancel/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ topup_id: topUpId }),
+      });
+    } finally {
+      setTopUpId(null);
+      setTopUpClientSecret("");
+      setTopUpError("");
+    }
+  };
+
+  const completeWalletTopUp = (walletBalance: string) => {
+    const updatedUser = { ...user, walletBalance };
+    syncStoredUser(updatedUser);
+    setTopUpId(null);
+    setTopUpClientSecret("");
+    setTopUpAmount("50000");
+    setTopUpError("");
+  };
+
+  const saveBankData = async () => {
+    if (!user?.id) return;
+
+    setBankSaving(true);
+    setBankMessage("");
+
+    try {
+      const payload = {
+        ...user,
+        ...bankForm,
+      };
+      const response = await apiFetch(`${API_URL}/auth/editProfile/`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudieron guardar los datos bancarios");
+      }
+
+      syncStoredUser(data.user);
+      setBankForm({
+        bankName: data.user.bankName || "",
+        bankAccountNumber: data.user.bankAccountNumber || "",
+      });
+      setBankMessage("Datos bancarios guardados");
+      setIsEditingBankData(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudieron guardar los datos bancarios";
+      setBankMessage(message);
+    } finally {
+      setBankSaving(false);
     }
   };
 
@@ -132,25 +335,156 @@ const Profile = () => {
           </Card>
 
           {user.userType === "cliente" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Informacion de empresa</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <p>
-                  <strong>Empresa:</strong>{" "}
-                  {isEditing ? (
-                    <input className="rounded border p-1" value={formData.enterpriseName || ""} onChange={(e) => handleChange("enterpriseName", e.target.value)} />
-                  ) : (
-                    user.enterpriseName || "No especificado"
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Informacion de empresa</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p>
+                    <strong>Empresa:</strong>{" "}
+                    {isEditing ? (
+                      <input className="rounded border p-1" value={formData.enterpriseName || ""} onChange={(e) => handleChange("enterpriseName", e.target.value)} />
+                    ) : (
+                      user.enterpriseName || "No especificado"
+                    )}
+                  </p>
+                  <p><strong>Proyectos publicados:</strong> {clientSummary?.projectCount ?? 0}</p>
+                  <p><strong>Activos:</strong> {clientSummary?.openCount ?? 0}</p>
+                  <p><strong>En ejecucion:</strong> {clientSummary?.inProgressCount ?? 0}</p>
+                  <p><strong>Finalizados:</strong> {clientSummary?.completedCount ?? 0}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Billetera</CardTitle>
+                  <CardDescription>Saldo disponible para pagar ordenes dentro de WorkNexus.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-lg border bg-muted/20 p-4">
+                    <p className="text-sm text-muted-foreground">Saldo actual</p>
+                    <p className="text-2xl font-bold">
+                      {formatCopCurrency(user.walletBalance)}
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 rounded-lg border p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium">Datos bancarios</p>
+                        <p className="text-sm text-muted-foreground">Información usada para habilitar recargas con Stripe.</p>
+                      </div>
+                      {!isEditingBankData && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setBankForm({
+                              bankName: user.bankName || "",
+                              bankAccountNumber: user.bankAccountNumber || "",
+                            });
+                            setBankMessage("");
+                            setIsEditingBankData(true);
+                          }}
+                        >
+                          Editar
+                        </Button>
+                      )}
+                    </div>
+
+                    {!isEditingBankData ? (
+                      <div className="space-y-2 text-sm">
+                        <p>
+                          <strong>Banco:</strong> {user.bankName || "No registrado"}
+                        </p>
+                        <p>
+                          <strong>Cuenta bancaria:</strong> {user.bankAccountNumber || "No registrada"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium">Banco</label>
+                          <input
+                            className="mt-1 w-full rounded border p-2"
+                            value={bankForm.bankName}
+                            onChange={(event) => {
+                              setBankForm((prev) => ({ ...prev, bankName: event.target.value }));
+                              setBankMessage("");
+                            }}
+                            placeholder="Ej: Bancolombia"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium">Cuenta bancaria</label>
+                          <input
+                            className="mt-1 w-full rounded border p-2"
+                            value={bankForm.bankAccountNumber}
+                            onChange={(event) => {
+                              setBankForm((prev) => ({ ...prev, bankAccountNumber: event.target.value }));
+                              setBankMessage("");
+                            }}
+                            placeholder="Numero de cuenta"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Button type="button" onClick={saveBankData} disabled={bankSaving}>
+                            {bankSaving ? "Guardando..." : "Guardar"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setBankForm({
+                                bankName: user.bankName || "",
+                                bankAccountNumber: user.bankAccountNumber || "",
+                              });
+                              setBankMessage("");
+                              setIsEditingBankData(false);
+                            }}
+                            disabled={bankSaving}
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    {bankMessage && <p className="text-sm text-muted-foreground">{bankMessage}</p>}
+                  </div>
+
+                  {!topUpClientSecret && (
+                    <div className="space-y-3">
+                      <label className="block text-sm font-medium">Monto a ingresar</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="w-full rounded border p-2"
+                        value={formatCopInput(topUpAmount)}
+                        onChange={(event) => setTopUpAmount(parseCopInput(event.target.value))}
+                        placeholder="50.000"
+                      />
+                      <Button onClick={startWalletTopUp} disabled={topUpLoading}>
+                        {topUpLoading ? "Creando recarga..." : "Añadir plata"}
+                      </Button>
+                    </div>
                   )}
-                </p>
-                <p><strong>Proyectos publicados:</strong> {clientSummary?.projectCount ?? 0}</p>
-                <p><strong>Activos:</strong> {clientSummary?.openCount ?? 0}</p>
-                <p><strong>En ejecucion:</strong> {clientSummary?.inProgressCount ?? 0}</p>
-                <p><strong>Finalizados:</strong> {clientSummary?.completedCount ?? 0}</p>
-              </CardContent>
-            </Card>
+
+                  {topUpClientSecret && (
+                    <Elements stripe={stripePromise} options={{ clientSecret: topUpClientSecret }}>
+                      <WalletTopUpForm
+                        clientSecret={topUpClientSecret}
+                        onCompleted={completeWalletTopUp}
+                        onCancel={cancelWalletTopUp}
+                      />
+                    </Elements>
+                  )}
+
+                  {topUpError && <p className="text-sm text-red-600">{topUpError}</p>}
+                </CardContent>
+              </Card>
+            </>
           )}
 
           {user.userType === "freelancer" && (
@@ -170,11 +504,11 @@ const Profile = () => {
                     )}
                   </p>
                   <p>
-                    <strong>Edad:</strong>{" "}
+                    <strong>Fecha de Nacimiento:</strong>{" "}
                     {isEditing ? (
-                      <input type="number" className="rounded border p-1" value={formData.age || ""} onChange={(e) => handleChange("age", e.target.value)} />
+                      <input type="number" className="rounded border p-1" value={formData.date_of_birth || ""} onChange={(e) => handleChange("date_of_birth", e.target.value)} />
                     ) : (
-                      user.age || "No especificada"
+                      user.date_of_birth || "No especificada"
                     )}
                   </p>
                   <div className="mt-4 rounded-xl border border-border bg-muted/20 p-4">

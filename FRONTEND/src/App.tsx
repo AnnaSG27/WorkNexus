@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import ScrollToTop from "./components/ScrollToTop";
 import Freelancers from "./pages/Freelancers";
 import Index from "./pages/Index";
 import Login from "./pages/login";
@@ -17,6 +18,7 @@ import Projects from "./pages/Projects";
 import Register from "./pages/Register";
 import SavedProfiles from "./pages/SavedProfiles";
 import Services from "./pages/Services";
+import Checkout from "./pages/Checkout";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +28,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Index />} />
@@ -37,6 +40,7 @@ const App = () => (
             <Route path="orders" element={<Orders />} />
             <Route path="messages" element={<Messages />} />
             <Route path="saved-profiles" element={<SavedProfiles />} />
+            <Route path="checkout/:orderId" element={<Checkout />} />
           </Route>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

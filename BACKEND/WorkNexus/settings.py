@@ -11,7 +11,16 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY")
+FRONTEND_URL = os.getenv("FRONTEND_URL")
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -46,6 +55,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "Messaging",
     "corsheaders",
+    "payments",
+    "external",
 ]
 
 MIDDLEWARE = [
@@ -133,5 +144,11 @@ STATIC_URL = 'static/'
 AUTH_USER_MODEL = "Authentication.User"
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8080",
-]
+    FRONTEND_URL,
+] if FRONTEND_URL else []
+
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    FRONTEND_URL,
+] if FRONTEND_URL else []

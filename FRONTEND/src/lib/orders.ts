@@ -1,4 +1,6 @@
-const ORDERS_API_BASE = "http://localhost:8000/orders";
+import { apiFetch } from "@/lib/apiClient";
+import { API_URL } from "./api";
+const ORDERS_API_BASE = `${API_URL}/orders`;
 
 export interface OrderParty {
   id: number;
@@ -72,7 +74,9 @@ export const fetchOrders = async (userId: string | number, role?: string) => {
   const params = new URLSearchParams({ user_id: String(userId) });
   if (role) params.set("role", role);
 
-  const response = await fetch(`${ORDERS_API_BASE}/?${params.toString()}`);
+  const response = await apiFetch(`${ORDERS_API_BASE}/?${params.toString()}`, {
+    method: "GET",
+  });
   return handleJsonResponse<{ orders: Order[]; summary: OrdersSummary }>(response);
 };
 
@@ -82,7 +86,7 @@ export const createServiceOrder = async (payload: {
   title?: string;
   description?: string;
 }) => {
-  const response = await fetch(`${ORDERS_API_BASE}/`, {
+  const response = await apiFetch(`${ORDERS_API_BASE}/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -103,7 +107,7 @@ export const updateOrder = async (
     agreedBudget?: number | string | null;
   },
 ) => {
-  const response = await fetch(`${ORDERS_API_BASE}/${orderId}/`, {
+  const response = await apiFetch(`${ORDERS_API_BASE}/${orderId}/`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",

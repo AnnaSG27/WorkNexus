@@ -15,6 +15,9 @@ class ClientProfile(models.Model):
         related_name="client_profile"
     )
     enterprise_name = models.CharField(max_length=255)
+    wallet_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    bank_name = models.CharField(max_length=120, blank=True)
+    bank_account_number = models.CharField(max_length=80, blank=True)
     
     def __str__(self):
         return f"Client: {self.user.username}"
@@ -26,7 +29,7 @@ class FreelancerProfile(models.Model):
         related_name="freelancer_profile"
     )
     bio = models.TextField()
-    age = models.PositiveIntegerField()
+    date_of_birth = models.DateField(null=True, blank=True)
     cv = models.FileField(upload_to="cvs/", blank=True, null=True)
 
     def __str__(self):

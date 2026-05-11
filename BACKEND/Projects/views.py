@@ -5,12 +5,12 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.db import DatabaseError, OperationalError, ProgrammingError
 from django.db.models import Q
-from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.utils.decorators import method_decorator
 from django.views import View
-from django.views.decorators.csrf import csrf_exempt
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 
 from Authentication.models import ClientProfile, FreelancerProfile
 from Messaging.models import Conversation, Message
@@ -60,7 +60,7 @@ def _serialize_application(application, current_user_id=None):
         "freelancerDisplayName": _user_display_name(freelancer_user),
         "freelancerEmail": freelancer_user.email,
         "freelancerBio": application.freelancer.bio,
-        "freelancerAge": application.freelancer.age,
+        "freelancerDate_of_birth": application.freelancer.date_of_birth,
         "coverLetter": application.cover_letter,
         "proposedBudget": float(application.proposed_budget) if application.proposed_budget is not None else None,
         "status": application.status,
@@ -162,18 +162,17 @@ def _project_summary(projects, user_type):
     }
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class ProjectListCreateView(View):
+class ProjectListCreateView(APIView):
     def _get_projects_response(self, request):
-        freelancer_id = request.GET.get("freelancer_id")
-        client_id = request.GET.get("client_id")
-        category = request.GET.get("category")
-        modality = request.GET.get("modality")
-        search = (request.GET.get("search") or "").strip()
-        favorite_only = request.GET.get("favorite_only") == "true"
-        min_budget = request.GET.get("min_budget")
-        max_budget = request.GET.get("max_budget")
-        status = request.GET.get("status")
+        freelancer_id = request.query_params.get("freelancer_id")
+        client_id = request.query_params.get("client_id")
+        category = request.query_params.get("category")
+        modality = request.query_params.get("modality")
+        search = (request.query_params.get("search") or "").strip()
+        favorite_only = request.query_params.get("favorite_only") == "true"
+        min_budget = request.query_params.get("min_budget")
+        max_budget = request.query_params.get("max_budget")
+        status_param = request.query_params.get("status")
 
         freelancer_profile = None
         if freelancer_id:
@@ -192,8 +191,8 @@ class ProjectListCreateView(View):
             projects = projects.filter(category=category)
         if modality:
             projects = projects.filter(modality=modality)
-        if status:
-            projects = projects.filter(status=status)
+        if status_param:
+            projects = projects.filter(status=status_param)
         if search:
             projects = projects.filter(Q(title__icontains=search) | Q(description__icontains=search))
         if min_budget:
@@ -211,13 +210,13 @@ class ProjectListCreateView(View):
         project_items = [_serialize_project(project, freelancer_profile) for project in projects.distinct()]
         favorite_projects = [item for item in project_items if item["isFavorite"]]
 
-        return JsonResponse(
+        return Response(
             {
                 "projects": project_items,
                 "favorites": favorite_projects,
                 "summary": _project_summary(projects.distinct(), user_type),
             },
-            status=200,
+            status=status.HTTP_200_OK,
         )
 
     def get(self, request):
@@ -228,7 +227,7 @@ class ProjectListCreateView(View):
             return self._get_projects_response(request)
 
     def _create_project_response(self, request):
-        data = _parse_json_body(request)
+        data = request.data
         client_id = _normalize_user_id(data.get("clientId"))
         title = (data.get("title") or "").strip()
         description = (data.get("description") or "").strip()
@@ -243,23 +242,23 @@ class ProjectListCreateView(View):
 
         client_profile = ClientProfile.objects.filter(user_id=client_id).first()
         if not client_profile:
-            return JsonResponse({"error": "Solo los clientes pueden publicar proyectos"}, status=403)
+            return Response({"error": "Solo los clientes pueden publicar proyectos"}, status=status.HTTP_403_FORBIDDEN)
         if not title or not description or budget in (None, ""):
-            return JsonResponse({"error": "Titulo, descripcion y presupuesto son obligatorios"}, status=400)
+            return Response({"error": "Titulo, descripcion y presupuesto son obligatorios"}, status=status.HTTP_400_BAD_REQUEST)
 
         valid_categories = {choice[0] for choice in Project.CATEGORY_CHOICES}
         valid_modalities = {choice[0] for choice in Project.MODALITY_CHOICES}
         if category not in valid_categories:
-            return JsonResponse({"error": "La categoria seleccionada no es valida"}, status=400)
+            return Response({"error": "La categoria seleccionada no es valida"}, status=status.HTTP_400_BAD_REQUEST)
         if modality not in valid_modalities:
-            return JsonResponse({"error": "La modalidad seleccionada no es valida"}, status=400)
+            return Response({"error": "La modalidad seleccionada no es valida"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             normalized_budget = Decimal(str(budget))
         except (InvalidOperation, TypeError, ValueError):
-            return JsonResponse({"error": "El presupuesto debe ser un numero valido"}, status=400)
+            return Response({"error": "El presupuesto debe ser un numero valido"}, status=status.HTTP_400_BAD_REQUEST)
         if normalized_budget <= 0:
-            return JsonResponse({"error": "El presupuesto debe ser mayor a 0"}, status=400)
+            return Response({"error": "El presupuesto debe ser mayor a 0"}, status=status.HTTP_400_BAD_REQUEST)
 
         project = Project.objects.create(
             client=client_profile,
@@ -277,7 +276,7 @@ class ProjectListCreateView(View):
             is_open=True,
         )
         project = _base_projects_queryset().get(id=project.id)
-        return JsonResponse({"project": _serialize_project(project)}, status=201)
+        return Response({"project": _serialize_project(project)}, status=status.HTTP_201_CREATED)
 
     def post(self, request):
         try:
@@ -286,29 +285,34 @@ class ProjectListCreateView(View):
             _ensure_projects_schema()
             return self._create_project_response(request)
         except DatabaseError:
-            return JsonResponse({"error": "No se pudo guardar el proyecto en la base de datos"}, status=500)
+            return Response({"error": "No se pudo guardar el proyecto en la base de datos"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as error:
             print("Error creating project:", error)
-            return JsonResponse({"error": "Error interno del servidor"}, status=500)
+            return Response({"error": "Error interno del servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class ProjectDetailUpdateView(View):
+class ProjectDetailUpdateView(APIView):
     def patch(self, request, project_id):
         try:
-            data = _parse_json_body(request)
+            data = request.data
             user_id = _normalize_user_id(data.get("userId"))
             new_status = data.get("status")
 
             project = _base_projects_queryset().filter(id=project_id).first()
             if not project:
-                return JsonResponse({"error": "Proyecto no encontrado"}, status=404)
+                return Response({"error": "Proyecto no encontrado"}, status=status.HTTP_404_NOT_FOUND)
             if project.client.user_id != user_id:
-                return JsonResponse({"error": "Solo el cliente propietario puede actualizar el proyecto"}, status=403)
+                return Response({"error": "Solo el cliente propietario puede actualizar el proyecto"}, status=status.HTTP_403_FORBIDDEN)
 
             valid_statuses = {choice[0] for choice in Project.STATUS_CHOICES}
             if new_status not in valid_statuses:
-                return JsonResponse({"error": "Estado de proyecto no valido"}, status=400)
+                return Response({"error": "Estado de proyecto no valido"}, status=status.HTTP_400_BAD_REQUEST)
+
+            if project.status == "en_ejecucion" and new_status not in {"en_ejecucion", "finalizado"}:
+                return Response(
+                    {"error": "Un proyecto en ejecucion solo puede mantenerse en ejecucion o pasar a finalizado"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             if new_status == "finalizado":
                 accepted_application_exists = ProjectApplication.objects.filter(
@@ -316,53 +320,76 @@ class ProjectDetailUpdateView(View):
                     status="aceptada",
                 ).exists()
                 if not accepted_application_exists:
-                    return JsonResponse(
+                    return Response(
                         {"error": "Debes aceptar un freelancer antes de finalizar y calificar el proyecto"},
-                        status=400,
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
+
+            if new_status == "en_ejecucion":
+                accepted_application_exists = ProjectApplication.objects.filter(
+                    project=project,
+                    status="aceptada",
+                ).exists()
+                if not accepted_application_exists:
+                    return Response(
+                        {"error": "Debes aceptar un freelancer antes de pasar el proyecto a ejecucion"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            if project.status in {"finalizado", "cerrado"} and new_status not in {"finalizado", "cerrado"}:
+                return Response(
+                    {"error": "Un proyecto finalizado o cerrado no puede volver a estados activos"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             project.status = new_status
             project.is_open = new_status in {"abierto", "en_revision"}
             project.save(update_fields=["status", "is_open"])
             project = _base_projects_queryset().get(id=project.id)
 
-            return JsonResponse({"project": _serialize_project(project)}, status=200)
+            return Response({"project": _serialize_project(project)}, status=status.HTTP_200_OK)
         except (OperationalError, ProgrammingError):
             _ensure_projects_schema()
             return self.patch(request, project_id)
         except Exception as error:
             print("Error updating project:", error)
-            return JsonResponse({"error": "Error interno del servidor"}, status=500)
+            return Response({"error": "Error interno del servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request, project_id):
         try:
-            data = _parse_json_body(request)
+            data = request.data
             user_id = _normalize_user_id(data.get("userId"))
 
             project = Project.objects.select_related("client__user").filter(id=project_id).first()
             if not project:
-                return JsonResponse({"error": "Proyecto no encontrado"}, status=404)
+                return Response({"error": "Proyecto no encontrado"}, status=status.HTTP_404_NOT_FOUND)
             if project.client.user_id != user_id:
-                return JsonResponse({"error": "Solo el cliente propietario puede eliminar el proyecto"}, status=403)
+                return Response({"error": "Solo el cliente propietario puede eliminar el proyecto"}, status=status.HTTP_403_FORBIDDEN)
 
+            if project.status == "en_ejecucion":
+                return Response(
+                    {"error": "No puedes eliminar un proyecto que está en ejecucion"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            project.orders.all().delete()
             project.delete()
-            return JsonResponse({"message": "Proyecto eliminado correctamente"}, status=200)
+            return Response({"message": "Proyecto eliminado correctamente"}, status=status.HTTP_200_OK)
         except (OperationalError, ProgrammingError):
             _ensure_projects_schema()
             return self.delete(request, project_id)
         except Exception as error:
             print("Error deleting project:", error)
-            return JsonResponse({"error": "Error interno del servidor"}, status=500)
+            return Response({"error": "Error interno del servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class ProjectApplicationListView(View):
+class ProjectApplicationListView(APIView):
     def get(self, request):
         try:
-            freelancer_id = request.GET.get("freelancer_id")
+            freelancer_id = request.query_params.get("freelancer_id")
             freelancer_profile = FreelancerProfile.objects.filter(user_id=freelancer_id).first()
             if not freelancer_profile:
-                return JsonResponse({"error": "Freelancer no encontrado"}, status=404)
+                return Response({"error": "Freelancer no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
             applications = (
                 ProjectApplication.objects.filter(freelancer=freelancer_profile)
@@ -384,39 +411,38 @@ class ProjectApplicationListView(View):
                 "accepted": sum(1 for item in payload if item["status"] == "aceptada"),
                 "rejected": sum(1 for item in payload if item["status"] == "rechazada"),
             }
-            return JsonResponse({"applications": payload, "summary": summary}, status=200)
+            return Response({"applications": payload, "summary": summary}, status=status.HTTP_200_OK)
         except (OperationalError, ProgrammingError):
             _ensure_projects_schema()
             return self.get(request)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class ApplyToProjectView(View):
+class ApplyToProjectView(APIView):
     def _apply_to_project_response(self, request, project_id):
-        data = _parse_json_body(request)
+        data = request.data
         freelancer_id = _normalize_user_id(data.get("freelancerId"))
         cover_letter = (data.get("coverLetter") or "").strip()
         proposed_budget = data.get("proposedBudget")
 
         freelancer_profile = FreelancerProfile.objects.filter(user_id=freelancer_id).first()
         if not freelancer_profile:
-            return JsonResponse({"error": "Solo los freelancers pueden aplicar a proyectos"}, status=403)
+            return Response({"error": "Solo los freelancers pueden aplicar a proyectos"}, status=status.HTTP_403_FORBIDDEN)
 
         project = _base_projects_queryset().filter(id=project_id, is_open=True).first()
         if not project:
-            return JsonResponse({"error": "Proyecto no encontrado o cerrado"}, status=404)
+            return Response({"error": "Proyecto no encontrado o cerrado"}, status=status.HTTP_404_NOT_FOUND)
         if project.client.user_id == freelancer_id:
-            return JsonResponse({"error": "No puedes aplicar a tu propio proyecto"}, status=400)
+            return Response({"error": "No puedes aplicar a tu propio proyecto"}, status=status.HTTP_400_BAD_REQUEST)
 
         if project.status not in {"abierto", "en_revision"}:
-            return JsonResponse({"error": "Este proyecto ya no recibe postulaciones"}, status=400)
+            return Response({"error": "Este proyecto ya no recibe postulaciones"}, status=status.HTTP_400_BAD_REQUEST)
 
         normalized_budget = None
         if proposed_budget not in (None, ""):
             try:
                 normalized_budget = Decimal(str(proposed_budget))
             except (InvalidOperation, TypeError, ValueError):
-                return JsonResponse({"error": "La propuesta economica no es valida"}, status=400)
+                return Response({"error": "La propuesta economica no es valida"}, status=status.HTTP_400_BAD_REQUEST)
 
         application, created = ProjectApplication.objects.get_or_create(
             project=project,
@@ -429,7 +455,7 @@ class ApplyToProjectView(View):
         )
 
         if not created and application.status != "retirada":
-            return JsonResponse({"error": "Ya aplicaste a este proyecto"}, status=400)
+            return Response({"error": "Ya aplicaste a este proyecto"}, status=status.HTTP_400_BAD_REQUEST)
 
         if not created and application.status == "retirada":
             application.cover_letter = cover_letter
@@ -438,13 +464,13 @@ class ApplyToProjectView(View):
             application.save(update_fields=["cover_letter", "proposed_budget", "status"])
 
         project = _base_projects_queryset().get(id=project.id)
-        return JsonResponse(
+        return Response(
             {
                 "message": "Aplicacion enviada correctamente",
                 "application": _serialize_application(application, current_user_id=freelancer_id),
                 "project": _serialize_project(project, freelancer_profile),
             },
-            status=201,
+            status=status.HTTP_201_CREATED,
         )
 
     def post(self, request, project_id):
@@ -454,17 +480,16 @@ class ApplyToProjectView(View):
             _ensure_projects_schema()
             return self._apply_to_project_response(request, project_id)
         except DatabaseError:
-            return JsonResponse({"error": "No se pudo guardar la aplicacion en la base de datos"}, status=500)
+            return Response({"error": "No se pudo guardar la aplicacion en la base de datos"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as error:
             print("Error applying to project:", error)
-            return JsonResponse({"error": "Error interno del servidor"}, status=500)
+            return Response({"error": "Error interno del servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class ProjectApplicationUpdateView(View):
+class ProjectApplicationUpdateView(APIView):
     def patch(self, request, application_id):
         try:
-            data = _parse_json_body(request)
+            data = request.data
             user_id = _normalize_user_id(data.get("userId"))
             new_status = data.get("status")
 
@@ -474,21 +499,42 @@ class ProjectApplicationUpdateView(View):
                 .first()
             )
             if not application:
-                return JsonResponse({"error": "Postulacion no encontrada"}, status=404)
+                return Response({"error": "Postulacion no encontrada"}, status=status.HTTP_404_NOT_FOUND)
 
             valid_statuses = {choice[0] for choice in ProjectApplication.STATUS_CHOICES}
             if new_status not in valid_statuses:
-                return JsonResponse({"error": "Estado de postulacion no valido"}, status=400)
+                return Response({"error": "Estado de postulacion no valido"}, status=status.HTTP_400_BAD_REQUEST)
 
             is_client_owner = application.project.client.user_id == user_id
             is_freelancer_owner = application.freelancer.user_id == user_id
 
             if new_status == "retirada":
                 if not is_freelancer_owner:
-                    return JsonResponse({"error": "Solo el freelancer puede retirar su postulacion"}, status=403)
+                    return Response({"error": "Solo el freelancer puede retirar su postulacion"}, status=status.HTTP_403_FORBIDDEN)
             else:
                 if not is_client_owner:
-                    return JsonResponse({"error": "Solo el cliente puede actualizar esta postulacion"}, status=403)
+                    return Response({"error": "Solo el cliente puede actualizar esta postulacion"}, status=status.HTTP_403_FORBIDDEN)
+
+            if new_status == "aceptada":
+                if application.project.status not in {"abierto", "en_revision"}:
+                    return Response(
+                        {"error": "Solo puedes aceptar postulaciones de proyectos abiertos o en revision"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                accepted_application_exists = ProjectApplication.objects.filter(
+                    project=application.project,
+                    status="aceptada",
+                ).exclude(id=application.id).exists()
+                if accepted_application_exists:
+                    return Response(
+                        {"error": "Este proyecto ya tiene un freelancer aceptado"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            elif new_status in {"en_revision", "rechazada"} and application.project.status in {"en_ejecucion", "finalizado", "cerrado"}:
+                return Response(
+                    {"error": "No puedes modificar postulaciones cuando el proyecto ya está en ejecucion, finalizado o cerrado"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             application.status = new_status
             application.save(update_fields=["status"])
@@ -525,28 +571,27 @@ class ProjectApplicationUpdateView(View):
             }
             if conversation_payload:
                 response_payload.update(conversation_payload)
-            return JsonResponse(response_payload, status=200)
+            return Response(response_payload, status=status.HTTP_200_OK)
         except (OperationalError, ProgrammingError):
             _ensure_projects_schema()
             return self.patch(request, application_id)
         except Exception as error:
             print("Error updating application:", error)
-            return JsonResponse({"error": "Error interno del servidor"}, status=500)
+            return Response({"error": "Error interno del servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class ProjectFavoriteToggleView(View):
+class ProjectFavoriteToggleView(APIView):
     def post(self, request, project_id):
         try:
-            data = _parse_json_body(request)
+            data = request.data
             freelancer_id = _normalize_user_id(data.get("freelancerId"))
             freelancer_profile = FreelancerProfile.objects.filter(user_id=freelancer_id).first()
             if not freelancer_profile:
-                return JsonResponse({"error": "Solo los freelancers pueden guardar proyectos"}, status=403)
+                return Response({"error": "Solo los freelancers pueden guardar proyectos"}, status=status.HTTP_403_FORBIDDEN)
 
             project = _base_projects_queryset().filter(id=project_id).first()
             if not project:
-                return JsonResponse({"error": "Proyecto no encontrado"}, status=404)
+                return Response({"error": "Proyecto no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
             favorite, created = ProjectFavorite.objects.get_or_create(project=project, freelancer=freelancer_profile)
             if not created:
@@ -556,16 +601,16 @@ class ProjectFavoriteToggleView(View):
                 is_favorite = True
 
             project = _base_projects_queryset().get(id=project.id)
-            return JsonResponse(
+            return Response(
                 {
                     "isFavorite": is_favorite,
                     "project": _serialize_project(project, freelancer_profile),
                 },
-                status=200,
+                status=status.HTTP_200_OK,
             )
         except (OperationalError, ProgrammingError):
             _ensure_projects_schema()
             return self.post(request, project_id)
         except Exception as error:
             print("Error toggling favorite:", error)
-            return JsonResponse({"error": "Error interno del servidor"}, status=500)
+            return Response({"error": "Error interno del servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
