@@ -2,3 +2,4 @@
 venv/
 BACKEND/media/
 *.tsbuildinfo
+.env
