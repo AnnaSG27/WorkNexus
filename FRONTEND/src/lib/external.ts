@@ -6,6 +6,10 @@ export const fetchExchangeRate = async () => {
     method: "GET",
   });
 
+  if (!response.ok) {
+    throw new Error(`Exchange rate request failed with status ${response.status}`);
+  }
+
   const data = await response.json();
   return data.cop;
 };

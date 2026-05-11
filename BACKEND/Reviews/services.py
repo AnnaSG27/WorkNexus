@@ -1,11 +1,6 @@
-from django.core.management import call_command
 from django.db.models import Avg, Count
 
 from .models import Review
-
-
-def ensure_reviews_schema():
-    call_command("migrate", "Reviews", interactive=False, verbosity=0)
 
 
 def get_freelancer_review_stats(freelancer_profile):

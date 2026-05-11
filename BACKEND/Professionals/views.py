@@ -4,7 +4,7 @@ from django.views import View
 
 from Authentication.models import FreelancerProfile
 from Projects.models import ProjectApplication
-from Reviews.services import ensure_reviews_schema, get_freelancer_review_stats
+from Reviews.services import get_freelancer_review_stats
 
 
 SEEDED_FREELANCERS = [
@@ -203,7 +203,4 @@ class FreelancerListView(View):
             freelancers = SEEDED_FREELANCERS + [_serialize_freelancer(profile) for profile in profiles]
             return JsonResponse({"freelancers": freelancers}, status=200)
         except (OperationalError, ProgrammingError):
-            ensure_reviews_schema()
-            profiles = FreelancerProfile.objects.select_related("user").all().order_by("-id")
-            freelancers = SEEDED_FREELANCERS + [_serialize_freelancer(profile) for profile in profiles]
-            return JsonResponse({"freelancers": freelancers}, status=200)
+            return JsonResponse({"error": "La base de datos no está disponible"}, status=503)
