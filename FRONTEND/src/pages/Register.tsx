@@ -256,7 +256,7 @@ export default function Register() {
 
             {userType === "freelancer" && (
               <div className="space-y-2">
-                <Label htmlFor="date_of_birth">Edad</Label>
+                <Label htmlFor="date_of_birth">Fecha de Nacimiento</Label>
                 <Input
                   id="date_of_birth"
                   type="date"
