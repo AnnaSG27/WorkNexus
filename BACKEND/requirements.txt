@@ -14,6 +14,7 @@ pytest==9.0.3
 pytest-django==4.12.0
 python-dotenv==1.2.2
 requests==2.33.1
+reportlab==4.4.6
 sqlparse==0.5.5
 stripe==15.1.0
 typing_extensions==4.15.0

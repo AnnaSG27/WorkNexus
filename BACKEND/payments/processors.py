@@ -5,6 +5,9 @@ import stripe
 from django.conf import settings
 from django.db import transaction
 
+from facturas.services import ensure_factura_for_payment
+from order.services import apply_order_status_transition
+
 from .models import Payment
 
 
@@ -57,15 +60,24 @@ class StripePaymentProcessor(PaymentProcessorInterface):
         }
 
     def confirm_payment(self, payment_identifier):
-        payment = Payment.objects.get(stripe_payment_intent=payment_identifier)
-        payment.status = "paid"
-        payment.save()
+        with transaction.atomic():
+            payment = Payment.objects.select_related(
+                "order__client__user",
+                "order__freelancer__user",
+                "order__service",
+            ).get(stripe_payment_intent=payment_identifier)
+            payment.status = "paid"
+            payment.save()
 
-        order = payment.order
-        order.status = "en_proceso"
-        order.save()
+            order = apply_order_status_transition(payment.order, "en_proceso")
+            factura = ensure_factura_for_payment(payment)
 
-        return {"message": "Payment completed successfully", "payment_id": payment.id}
+        return {
+            "message": "Payment completed successfully",
+            "payment_id": payment.id,
+            "factura_id": factura.id,
+            "factura_pdf": f"/facturas/{factura.id}/pdf/",
+        }
 
     def cancel_payment(self, payment_identifier):
         payment = Payment.objects.get(id=payment_identifier, method="stripe")
@@ -99,23 +111,36 @@ class WalletPaymentProcessor(PaymentProcessorInterface):
         client.wallet_balance -= amount
         client.save(update_fields=["wallet_balance"])
 
-        payment.status = "paid"
-        payment.processor_reference = f"wallet-{payment.id}"
-        payment.save()
+        with transaction.atomic():
+            payment.status = "paid"
+            payment.processor_reference = f"wallet-{payment.id}"
+            payment.save()
 
-        order.status = "en_proceso"
-        order.save(update_fields=["status", "updated_at"])
+            order = apply_order_status_transition(payment.order, "en_proceso")
+            factura = ensure_factura_for_payment(payment)
 
         return {
             "payment_id": payment.id,
             "method": payment.method,
             "message": "Payment completed with wallet balance",
             "wallet_balance": str(client.wallet_balance),
+            "factura_id": factura.id,
+            "factura_pdf": f"/facturas/{factura.id}/pdf/",
         }
 
     def confirm_payment(self, payment_identifier):
-        payment = Payment.objects.get(id=payment_identifier, method="wallet")
-        return {"message": "Payment already completed with wallet balance", "payment_id": payment.id}
+        payment = Payment.objects.select_related(
+            "order__client__user",
+            "order__freelancer__user",
+            "order__service",
+        ).get(id=payment_identifier, method="wallet")
+        factura = ensure_factura_for_payment(payment)
+        return {
+            "message": "Payment already completed with wallet balance",
+            "payment_id": payment.id,
+            "factura_id": factura.id,
+            "factura_pdf": f"/facturas/{factura.id}/pdf/",
+        }
 
     def cancel_payment(self, payment_identifier):
         raise PaymentProcessingError("Wallet payments are completed immediately and cannot be canceled")
