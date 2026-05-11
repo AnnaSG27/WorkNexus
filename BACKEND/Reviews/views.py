@@ -6,7 +6,7 @@ from Authentication.models import ClientProfile, FreelancerProfile
 from Projects.models import ProjectApplication
 
 from .models import Review
-from .services import ensure_reviews_schema, get_freelancer_review_stats
+from .services import get_freelancer_review_stats
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -75,8 +75,7 @@ class ReviewListCreateView(APIView):
                 status=status.HTTP_200_OK,
             )
         except (OperationalError, ProgrammingError):
-            ensure_reviews_schema()
-            return self.get(request)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     def post(self, request):
         try:
@@ -132,8 +131,7 @@ class ReviewListCreateView(APIView):
                 status=status.HTTP_201_CREATED,
             )
         except (OperationalError, ProgrammingError):
-            ensure_reviews_schema()
-            return self.post(request)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except DatabaseError:
             return Response({"error": "No se pudo guardar la reseña en la base de datos"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as error:
