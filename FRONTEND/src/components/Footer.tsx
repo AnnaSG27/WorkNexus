@@ -66,7 +66,7 @@ const Footer = () => {
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
                 <img 
-                src="../public/images/Logo_WorkNexus.png" 
+                src="/images/Logo_WorkNexus.png" 
                 alt="WorkNexus Logo"
                 className="h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-md"
               />

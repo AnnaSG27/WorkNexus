@@ -1,6 +1,5 @@
 import json
 
-from django.core.management import call_command
 from django.db import DatabaseError, IntegrityError, OperationalError, ProgrammingError
 from django.db.models import Q
 from django.http import JsonResponse
@@ -30,12 +29,6 @@ def _normalize_user_id(value):
         return int(value)
     except (TypeError, ValueError):
         return None
-
-
-def _ensure_order_schema():
-    call_command("migrate", "order", interactive=False, verbosity=0)
-    call_command("migrate", "Reviews", interactive=False, verbosity=0)
-
 
 def _user_display_name(user):
     full_name = f"{user.first_name} {user.last_name}".strip()
@@ -182,8 +175,7 @@ class OrderListCreateView(APIView):
         try:
             return self._get_orders_response(request)
         except (OperationalError, ProgrammingError):
-            _ensure_order_schema()
-            return self._get_orders_response(request)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     def _create_order_response(self, request):
         data = request.data
@@ -231,8 +223,7 @@ class OrderListCreateView(APIView):
         try:
             return self._create_order_response(request)
         except (OperationalError, ProgrammingError):
-            _ensure_order_schema()
-            return self._create_order_response(request)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except DatabaseError:
             return JsonResponse({"error": "No se pudo guardar la contratacion en la base de datos"}, status=500)
         except Exception as error:
@@ -251,8 +242,7 @@ class OrderDetailUpdateView(APIView):
                 return Response({"error": "Contratacion no encontrada"}, status=status.HTTP_404_NOT_FOUND)
             return Response({"order": _serialize_order(order)}, status=status.HTTP_200_OK)
         except (OperationalError, ProgrammingError):
-            _ensure_order_schema()
-            return self.get(request, order_id)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     def patch(self, request, order_id):
         try:
@@ -316,8 +306,7 @@ class OrderDetailUpdateView(APIView):
             order = self._get_order(order_id)
             return Response({"order": _serialize_order(order)}, status=status.HTTP_200_OK)
         except (OperationalError, ProgrammingError):
-            _ensure_order_schema()
-            return self.patch(request, order_id)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception as error:
             print("Error updating order:", error)
             return Response({"error": "Error interno del servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

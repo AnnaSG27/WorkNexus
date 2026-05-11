@@ -2,7 +2,6 @@ import json
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth import get_user_model
-from django.core.management import call_command
 from django.db import DatabaseError, OperationalError, ProgrammingError
 from django.db.models import Q
 from django.utils import timezone
@@ -34,12 +33,6 @@ def _normalize_user_id(value):
         return int(value)
     except (TypeError, ValueError):
         return None
-
-
-def _ensure_projects_schema():
-    call_command("migrate", "Projects", interactive=False, verbosity=0)
-    call_command("migrate", "Reviews", interactive=False, verbosity=0)
-
 
 def _serialize_skills(skills):
     return [item.strip() for item in (skills or "").split(",") if item.strip()]
@@ -223,8 +216,7 @@ class ProjectListCreateView(APIView):
         try:
             return self._get_projects_response(request)
         except (OperationalError, ProgrammingError):
-            _ensure_projects_schema()
-            return self._get_projects_response(request)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     def _create_project_response(self, request):
         data = request.data
@@ -282,8 +274,7 @@ class ProjectListCreateView(APIView):
         try:
             return self._create_project_response(request)
         except (OperationalError, ProgrammingError):
-            _ensure_projects_schema()
-            return self._create_project_response(request)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except DatabaseError:
             return Response({"error": "No se pudo guardar el proyecto en la base de datos"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as error:
@@ -349,8 +340,7 @@ class ProjectDetailUpdateView(APIView):
 
             return Response({"project": _serialize_project(project)}, status=status.HTTP_200_OK)
         except (OperationalError, ProgrammingError):
-            _ensure_projects_schema()
-            return self.patch(request, project_id)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception as error:
             print("Error updating project:", error)
             return Response({"error": "Error interno del servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -376,8 +366,7 @@ class ProjectDetailUpdateView(APIView):
             project.delete()
             return Response({"message": "Proyecto eliminado correctamente"}, status=status.HTTP_200_OK)
         except (OperationalError, ProgrammingError):
-            _ensure_projects_schema()
-            return self.delete(request, project_id)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception as error:
             print("Error deleting project:", error)
             return Response({"error": "Error interno del servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -413,8 +402,7 @@ class ProjectApplicationListView(APIView):
             }
             return Response({"applications": payload, "summary": summary}, status=status.HTTP_200_OK)
         except (OperationalError, ProgrammingError):
-            _ensure_projects_schema()
-            return self.get(request)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 class ApplyToProjectView(APIView):
@@ -477,8 +465,7 @@ class ApplyToProjectView(APIView):
         try:
             return self._apply_to_project_response(request, project_id)
         except (OperationalError, ProgrammingError):
-            _ensure_projects_schema()
-            return self._apply_to_project_response(request, project_id)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except DatabaseError:
             return Response({"error": "No se pudo guardar la aplicacion en la base de datos"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as error:
@@ -573,8 +560,7 @@ class ProjectApplicationUpdateView(APIView):
                 response_payload.update(conversation_payload)
             return Response(response_payload, status=status.HTTP_200_OK)
         except (OperationalError, ProgrammingError):
-            _ensure_projects_schema()
-            return self.patch(request, application_id)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception as error:
             print("Error updating application:", error)
             return Response({"error": "Error interno del servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -609,8 +595,7 @@ class ProjectFavoriteToggleView(APIView):
                 status=status.HTTP_200_OK,
             )
         except (OperationalError, ProgrammingError):
-            _ensure_projects_schema()
-            return self.post(request, project_id)
+            return Response({"error": "La base de datos no está disponible"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception as error:
             print("Error toggling favorite:", error)
             return Response({"error": "Error interno del servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
