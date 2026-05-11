@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Briefcase, CheckCircle2, ClipboardList, FolderKanban, PlayCircle, Sparkles, Star, XCircle } from "lucide-react";
+import { Briefcase, CheckCircle2, FileText, FolderKanban, PlayCircle, Sparkles, Star, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { getStoredUser } from "@/components/professionals-session";
 import { toast } from "@/hooks/use-toast";
 import { fetchOrders, updateOrder, type Order } from "@/lib/orders";
+import { API_URL } from "@/lib/api";
 import { createReview } from "@/lib/reviews";
 import { formatCopCurrency } from "@/lib/utils";
 
@@ -36,6 +37,7 @@ const Orders = () => {
   const queryClient = useQueryClient();
   const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
   const [reviewDraft, setReviewDraft] = useState({ rating: 5, comment: "" });
+  const [downloadingFacturaId, setDownloadingFacturaId] = useState<number | null>(null);
   const isFreelancer = user?.userType === "freelancer";
   const pageTitle = isFreelancer ? "Mis trabajos" : "Mis proyectos";
   const pageDescription = isFreelancer
@@ -122,6 +124,38 @@ const Orders = () => {
     navigate(`/checkout/${orderId}`);
   };
 
+  const downloadFactura = async (order: Order) => {
+    const facturaPath = order.payment?.facturaPdf || `/facturas/orders/${order.id}/pdf/`;
+    setDownloadingFacturaId(order.id);
+
+    try {
+      const response = await fetch(`${API_URL}${facturaPath}`, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || "No se pudo descargar la factura");
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `factura-orden-${order.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo descargar la factura";
+      toast({ title: "Factura no disponible", description: message, variant: "destructive" });
+    } finally {
+      setDownloadingFacturaId(null);
+    }
+  };
+
   return (
     <div className="bg-background pt-20">
       <section className="border-b border-border/60 bg-[radial-gradient(circle_at_top_left,_hsl(220_70%_45%_/_0.15),_transparent_35%),linear-gradient(180deg,hsl(210_20%_97%),hsl(210_20%_99%))] pb-16 pt-10">
@@ -192,6 +226,12 @@ const Orders = () => {
                     <Briefcase className="mr-2 h-4 w-4" />
                     Abrir chat
                   </Button>
+                  {order.payment && ["paid", "released"].includes(order.payment.status) && (
+                    <Button variant="outline" disabled={downloadingFacturaId === order.id} onClick={() => downloadFactura(order)}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      {downloadingFacturaId === order.id ? "Descargando..." : "Factura PDF"}
+                    </Button>
+                  )}
                   {(() => {
                     // =========================
                     // CLIENTE
@@ -368,7 +408,7 @@ const Orders = () => {
               <Sparkles className="mr-2 h-3.5 w-3.5" />
               Reseña final del proyecto
             </div>
-            <DialogTitle className="pt-2 text-2xl text-foreground">Califica al freelancer</DialogTitle>
+            <DialogTitle className="pt-1 text-xl text-foreground">Califica al freelancer</DialogTitle>
             <DialogDescription>
               {reviewOrder
                 ? `Tu proyecto "${reviewOrder.title}" quedó terminado. Deja una reseña para ${reviewOrder.freelancer.displayName}.`
@@ -380,19 +420,19 @@ const Orders = () => {
           <div className="min-h-0 space-y-6 overflow-y-auto px-6 py-6 md:px-7">
 
             {/* Tarjeta: info del proyecto y freelancer */}
-            <div className="grid gap-4 rounded-[24px] border border-border/70 bg-background/90 p-5 shadow-sm md:grid-cols-[1.2fr_0.8fr]">
+            <div className="grid gap-3 rounded-2xl border border-border/70 bg-background/90 p-4 shadow-sm sm:grid-cols-[1.15fr_0.85fr]">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Proyecto</p>
-                <p className="mt-2 text-lg font-semibold text-foreground">{reviewOrder?.title}</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">Proyecto</p>
+                <p className="mt-1 text-base font-semibold text-foreground">{reviewOrder?.title}</p>
+                <p className="mt-1 line-clamp-2 text-sm leading-5 text-muted-foreground">
                   {reviewOrder?.description || "Cierre del proyecto con valoración final del trabajo entregado."}
                 </p>
               </div>
-              <div className="rounded-[20px] border border-border/70 bg-muted/30 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Freelancer</p>
-                <p className="mt-2 text-base font-semibold text-foreground">{reviewOrder?.freelancer.displayName}</p>
+              <div className="rounded-2xl border border-border/70 bg-muted/30 p-3">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">Freelancer</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">{reviewOrder?.freelancer.displayName}</p>
                 <p className="mt-1 text-sm text-muted-foreground">@{reviewOrder?.freelancer.username}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Badge variant="outline">{reviewOrder?.sourceType === "project" ? "Proyecto contratado" : "Servicio"}</Badge>
                   {reviewOrder?.project && <Badge className="bg-secondary text-secondary-foreground">Terminado</Badge>}
                 </div>
@@ -400,7 +440,7 @@ const Orders = () => {
             </div>
 
             {/* Tarjeta: selector de estrellas */}
-            <div className="rounded-[24px] border border-border/70 bg-background p-5 shadow-sm">
+            <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-foreground">Calificación general</p>
@@ -411,7 +451,7 @@ const Orders = () => {
                   {reviewDraft.rating}.0 / 5
                 </div>
               </div>
-              <div className="mt-5 flex flex-wrap gap-3">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {Array.from({ length: 5 }).map((_, index) => {
                   const selectedRating = index + 1;
                   const isActive = selectedRating <= reviewDraft.rating;
@@ -439,14 +479,14 @@ const Orders = () => {
               onChange={(event) => setReviewDraft((current) => ({ ...current, comment: event.target.value }))}
               placeholder="Escribe una reseña corta sobre la calidad del trabajo, la comunicación y la entrega."
               maxLength={500}
-              rows={5}
-              className="mt-5 resize-none border-border/70 bg-muted/20 focus-visible:ring-primary"
+              rows={4}
+              className="resize-none border-border/70 bg-muted/20 focus-visible:ring-primary"
             />
 
           </div> {/* ✅ Cierra el space-y-6 */}
 
           {/* DialogFooter directamente en DialogContent, fuera del div con padding */}
-          <DialogFooter className="border-t border-border/70 bg-background/90 px-6 py-5 md:px-7">
+          <DialogFooter className="shrink-0 border-t border-border/70 bg-background/90 px-5 py-4">
             <Button variant="outline" className="rounded-full" onClick={() => setReviewOrder(null)}>
               Después
             </Button>
