@@ -3,3 +3,5 @@ venv/
 BACKEND/media/
 *.tsbuildinfo
 .env
+BACKEND/.env
+FRONTEND/.env
