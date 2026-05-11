@@ -9,7 +9,7 @@ services:
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
       VITE_STRIPE_PUBLIC_KEY: "${VITE_STRIPE_PUBLIC_KEY}"
-      VITE_API_URL: "${VITE_API_URL}"
+      VITE_API_URL_OVERRIDE: "${VITE_API_URL_OVERRIDE}"
     volumes:
       - ./FRONTEND:/app
       - frontend_node_modules:/app/node_modules
