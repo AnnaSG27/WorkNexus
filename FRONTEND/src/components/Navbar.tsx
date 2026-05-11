@@ -59,11 +59,26 @@ const Navbar = () => {
   };
 
   useEffect(() => {
-    fetchExchangeRate().then(setRate)
-      const interval = setInterval(() => {
-        fetchExchangeRate().then(setRate);
-      }, 6000);
-      return () => clearInterval(interval)
+    let isMounted = true;
+
+    const loadExchangeRate = async () => {
+      try {
+        const nextRate = await fetchExchangeRate();
+        if (isMounted) {
+          setRate(nextRate);
+        }
+      } catch (error) {
+        console.error("Unable to refresh exchange rate", error);
+      }
+    };
+
+    loadExchangeRate();
+    const interval = setInterval(loadExchangeRate, 6000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   return (
