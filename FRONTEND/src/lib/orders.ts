@@ -49,6 +49,11 @@ export interface Order {
     comment: string;
     createdAt: string;
   } | null;
+  payment: {
+    status: string;
+    facturaId: number | null;
+    facturaPdf: string | null;
+  } | null;
   application: OrderApplicationInfo | null;
 }
 

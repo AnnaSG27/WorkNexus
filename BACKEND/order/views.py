@@ -12,6 +12,7 @@ from rest_framework import status
 from Authentication.models import ClientProfile, FreelancerProfile
 from Reviews.models import Review
 from Services.models import Service
+from facturas.services import ensure_factura_for_payment
 
 from .models import Order
 from .services import apply_order_status_transition, create_service_order, normalize_budget
@@ -45,6 +46,10 @@ def _serialize_order(order):
     client_user = order.client.user
     freelancer_user = order.freelancer.user
     review = Review.objects.filter(project=order.project).first() if order.project_id else None
+    payment = Payment.objects.filter(order=order).select_related("factura").first()
+    factura = getattr(payment, "factura", None) if payment else None
+    if payment and payment.status in {"paid", "released"} and not factura:
+        factura = ensure_factura_for_payment(payment)
 
     return {
         "id": order.id,
@@ -54,9 +59,11 @@ def _serialize_order(order):
         "status": order.status,
         "payment": (
             {
-                "status": Payment.objects.filter(order=order).first().status
+                "status": payment.status,
+                "facturaId": factura.id if factura else None,
+                "facturaPdf": f"/facturas/{factura.id}/pdf/" if factura else None,
             }
-            if Payment.objects.filter(order=order).exists()
+            if payment
             else None
         ),
         "agreedBudget": float(order.agreed_budget) if order.agreed_budget is not None else None,
