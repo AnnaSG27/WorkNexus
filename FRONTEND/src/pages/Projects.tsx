@@ -1022,7 +1022,7 @@ const Projects = () => {
       </section>
 
       <Dialog open={Boolean(reviewProject)} onOpenChange={(isOpen) => !isOpen && setReviewProject(null)}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Califica al freelancer</DialogTitle>
             <DialogDescription>
@@ -1033,7 +1033,7 @@ const Projects = () => {
           </DialogHeader>
 
           {reviewProject && (
-            <div className="space-y-5">
+            <div className="min-h-0 space-y-5 overflow-y-auto">
               <div className="rounded-2xl border border-border bg-muted/20 p-4">
                 <p className="font-medium text-foreground">{reviewProject.title}</p>
                 <p className="mt-1 text-sm text-muted-foreground">

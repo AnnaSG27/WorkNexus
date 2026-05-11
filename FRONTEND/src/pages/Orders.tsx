@@ -402,8 +402,8 @@ const Orders = () => {
       </section>
 
       <Dialog open={Boolean(reviewOrder)} onOpenChange={(isOpen) => !isOpen && setReviewOrder(null)}>
-        <DialogContent className="flex max-h-[88vh] flex-col overflow-hidden border-border/70 p-0 shadow-2xl sm:max-w-xl">
-          <DialogHeader className="shrink-0 border-b border-border/70 bg-[radial-gradient(circle_at_top_left,_hsl(220_70%_45%_/_0.14),_transparent_32%),linear-gradient(180deg,hsl(210_20%_98%),hsl(210_20%_100%))] px-5 py-4 text-left">
+        <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden border-border/70 p-0 shadow-2xl sm:max-w-2xl">
+          <DialogHeader className="border-b border-border/70 bg-[radial-gradient(circle_at_top_left,_hsl(220_70%_45%_/_0.14),_transparent_32%),linear-gradient(180deg,hsl(210_20%_98%),hsl(210_20%_100%))] px-6 py-5 text-left md:px-7">
             <div className="inline-flex w-fit items-center rounded-full bg-secondary/15 px-3 py-1 text-xs font-medium text-secondary">
               <Sparkles className="mr-2 h-3.5 w-3.5" />
               Reseña final del proyecto
@@ -417,7 +417,7 @@ const Orders = () => {
           </DialogHeader>
 
           {/* ✅ Contenedor del body del dialog */}
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          <div className="min-h-0 space-y-6 overflow-y-auto px-6 py-6 md:px-7">
 
             {/* Tarjeta: info del proyecto y freelancer */}
             <div className="grid gap-3 rounded-2xl border border-border/70 bg-background/90 p-4 shadow-sm sm:grid-cols-[1.15fr_0.85fr]">
