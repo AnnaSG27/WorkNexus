@@ -26,7 +26,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jose_anna"]
+      test: ["CMD-SHELL", "pg_isready -U jose_anna -d WorkNexus"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -48,7 +48,7 @@ services:
       DJANGO_SETTINGS_MODULE: "WorkNexus.settings"
       RUN_MIGRATIONS: "false"
       RUN_COLLECTSTATIC: "false"
-    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000", "--noreload"]
 
 volumes:
   postgres_data:

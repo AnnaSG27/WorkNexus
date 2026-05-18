@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ScrollToTop from "./components/ScrollToTop";
+import { AutoTranslate, I18nProvider } from "./i18n";
 import Freelancers from "./pages/Freelancers";
 import Index from "./pages/Index";
 import Login from "./pages/login";
@@ -24,30 +25,33 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <ScrollToTop />
-        <Routes>
-          <Route path="/" element={<MainLayout />}>
-            <Route index element={<Index />} />
-            <Route path="services" element={<Services />} />
-            <Route path="/services/:category" element={<ServiceCategory />} />
-            <Route path="freelancers" element={<Freelancers />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="projects" element={<Projects />} />
-            <Route path="orders" element={<Orders />} />
-            <Route path="messages" element={<Messages />} />
-            <Route path="saved-profiles" element={<SavedProfiles />} />
-            <Route path="checkout/:orderId" element={<Checkout />} />
-          </Route>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <I18nProvider>
+      <TooltipProvider>
+        <AutoTranslate />
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <ScrollToTop />
+          <Routes>
+            <Route path="/" element={<MainLayout />}>
+              <Route index element={<Index />} />
+              <Route path="services" element={<Services />} />
+              <Route path="/services/:category" element={<ServiceCategory />} />
+              <Route path="freelancers" element={<Freelancers />} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="projects" element={<Projects />} />
+              <Route path="orders" element={<Orders />} />
+              <Route path="messages" element={<Messages />} />
+              <Route path="saved-profiles" element={<SavedProfiles />} />
+              <Route path="checkout/:orderId" element={<Checkout />} />
+            </Route>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </I18nProvider>
   </QueryClientProvider>
 );
 
