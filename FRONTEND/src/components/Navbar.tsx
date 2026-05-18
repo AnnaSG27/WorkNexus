@@ -15,10 +15,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { canUseClientFeatures, getStoredUser } from "@/components/professionals-session";
 import { useProfessionalFavorites } from "@/components/useProfessionalFavorites";
+import { useI18n } from "@/i18n";
 import { fetchConversations } from "@/lib/chat";
 
 const Navbar = () => {
   const navigate = useNavigate();
+  const { language, toggleLanguage } = useI18n();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const user = getStoredUser();
   const canSaveFavorites = canUseClientFeatures(user);
@@ -130,6 +132,15 @@ const Navbar = () => {
           </div>
 
           <div className="hidden items-center gap-3 md:flex">
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-w-20 rounded-full px-3"
+              onClick={toggleLanguage}
+              aria-label={language === "es" ? "Cambiar a ingles" : "Switch to Spanish"}
+            >
+              {language === "es" ? "🌐 EN" : "🌐 ES"}
+            </Button>
             {!user && (
               <>
                 <Link to="/login" onClick={scrollToPageTop}>
@@ -207,6 +218,15 @@ const Navbar = () => {
                   {link.name}
                 </Link>
               ))}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full rounded-full"
+                onClick={toggleLanguage}
+                aria-label={language === "es" ? "Cambiar a ingles" : "Switch to Spanish"}
+              >
+                {language === "es" ? "🌐 English" : "🌐 Español"}
+              </Button>
               <Link
                 to="/freelancers"
                 className="block py-2 text-muted-foreground transition-colors hover:text-foreground"

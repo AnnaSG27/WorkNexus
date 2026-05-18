@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
+import { enUS } from "date-fns/locale";
 import { es } from "date-fns/locale";
 import { CheckCheck, Inbox, MessageSquare, SendHorizontal } from "lucide-react";
 
@@ -12,14 +13,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getStoredUser } from "@/components/professionals-session";
+import { Language, useI18n } from "@/i18n";
 import { fetchConversationMessages, fetchConversations, fetchMessagingStats, getCurrentUserId, sendMessage, startConversation } from "@/lib/chat";
 
 const REFRESH_INTERVAL_MS = 2500;
 
-const formatRelativeDate = (value?: string | null) => {
+const formatRelativeDate = (value: string | null | undefined, language: Language) => {
   if (!value) return "Sin actividad";
   try {
-    return formatDistanceToNow(new Date(value), { addSuffix: true, locale: es });
+    return formatDistanceToNow(new Date(value), { addSuffix: true, locale: language === "es" ? es : enUS });
   } catch {
     return "Fecha invalida";
   }
@@ -27,6 +29,7 @@ const formatRelativeDate = (value?: string | null) => {
 
 const Messages = () => {
   const navigate = useNavigate();
+  const { language } = useI18n();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
@@ -181,13 +184,13 @@ const Messages = () => {
                         <div className="min-w-0">
                           <p className="truncate font-semibold text-foreground">{conversation.otherUser.displayName}</p>
                           <p className="truncate text-sm text-muted-foreground">{conversation.lastMessage?.content || "Aun no hay mensajes"}</p>
-                          {conversation.lastResponseAt && <p className="mt-1 text-[11px] text-muted-foreground">Ultima respuesta {formatRelativeDate(conversation.lastResponseAt)}</p>}
+                          {conversation.lastResponseAt && <p className="mt-1 text-[11px] text-muted-foreground">Ultima respuesta {formatRelativeDate(conversation.lastResponseAt, language)}</p>}
                         </div>
                         {conversation.unreadCount > 0 && <Badge className="border-transparent bg-primary text-primary-foreground hover:bg-primary">{conversation.unreadCount}</Badge>}
                       </div>
                       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                         <span>{conversation.otherUser.userType || "usuario"}</span>
-                        <span>{formatRelativeDate(conversation.updatedAt)}</span>
+                        <span>{formatRelativeDate(conversation.updatedAt, language)}</span>
                       </div>
                     </button>
                   );
@@ -221,7 +224,7 @@ const Messages = () => {
                     <div>
                       <p className="text-lg font-semibold text-foreground">{selectedConversation.otherUser.displayName}</p>
                       <p className="text-sm text-muted-foreground">Conversacion activa con {selectedConversation.otherUser.userType || "usuario"}</p>
-                      {selectedConversation.lastResponseAt && <p className="mt-1 text-xs text-muted-foreground">Ultima respuesta {formatRelativeDate(selectedConversation.lastResponseAt)}</p>}
+                      {selectedConversation.lastResponseAt && <p className="mt-1 text-xs text-muted-foreground">Ultima respuesta {formatRelativeDate(selectedConversation.lastResponseAt, language)}</p>}
                     </div>
                   </div>
                   <Badge variant="outline">{selectedConversation.messageCount} mensajes</Badge>
@@ -256,7 +259,7 @@ const Messages = () => {
                     >
                       {!message.isMine && <p className="mb-1 text-[11px] font-semibold text-muted-foreground">{message.senderDisplayName}</p>}
                       <p>{message.content}</p>
-                      <p className={`mt-2 text-[11px] ${message.isMine ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{formatRelativeDate(message.createdAt)}</p>
+                      <p className={`mt-2 text-[11px] ${message.isMine ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{formatRelativeDate(message.createdAt, language)}</p>
                       {message.isMine && (
                         <p className="mt-1 flex items-center gap-1 text-[11px] text-primary-foreground/80">
                           <CheckCheck className="h-3 w-3" />
@@ -287,7 +290,7 @@ const Messages = () => {
 
             <div className="border-t border-border bg-background p-4">
               <div className="mb-3 flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                <span>Ultima actividad: {formatRelativeDate(statsQuery.data?.stats.lastActivity)}</span>
+                <span>Ultima actividad: {formatRelativeDate(statsQuery.data?.stats.lastActivity, language)}</span>
                 {sendMessageMutation.isPending && <span>Enviando...</span>}
               </div>
               <div className="flex gap-3">
