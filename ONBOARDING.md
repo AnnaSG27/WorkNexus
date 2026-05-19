@@ -61,11 +61,11 @@ VITE_STRIPE_PUBLIC_KEY=
 # Ejecución con Docker Compose
 Desde la raíz del proyecto:
 ```bash
-docker-compose  up  --build
+docker-compose build
 ```
 Para ejecutar en segundo plano:
 ```bash
-docker-compose  up  -d  --build
+docker-compose up -d
 ```
 Para detener los contenedores:
 ```bash
